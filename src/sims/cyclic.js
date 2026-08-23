@@ -10,11 +10,11 @@ export default {
   options: { preset: { label: 'Preset', values: Object.keys(PRESETS), labels: Object.fromEntries(Object.entries(PRESETS).map(([k, v]) => [k, v.label])), value: 'spirals' } },
   concept: {
     rule: 'k 種顏色排成一圈。一格若有足夠多的鄰居拿著「下一色」，它就跟著變成下一色。規則只有這一句，沒有出生沒有死亡。範圍、門檻、顏色數三個參數決定它長成螺旋還是湍流。',
-    why: '從雜訊開始會經過三個相：碎屑 → 液滴（局部同步的色塊互相吞）→ 螺旋（一旦出現缺陷就自我維持的波源）。螺旋一旦形成就永遠轉下去，這正是背景要的：有變化、沒結局。Griffeath 1988 年用它證明「激發介質」不需要化學。',
+    why: '從雜訊開始會經過三個相：碎屑 → 液滴（局部同步的色塊互相吞）→ 螺旋（一旦出現缺陷就自我維持的波源）。螺旋一旦形成就永遠轉下去，這正是背景要的：有變化、沒結局。它是 Greenberg–Hastings 之後最精簡的離散「激發介質」，Dewdney 1989 年在 Scientific American 介紹 Griffeath 的實驗後才出名。',
     dies: '不會。螺旋是拓撲缺陷，沒有外力不會消失。',
     cost: '每幀 O(格數 × 鄰域大小)，4px 格子。R3 的 Moore 鄰域是 48 格，JS 還撐得住。',
     interact: '滑鼠移動：在游標處撒一把雜訊，會長出新的螺旋中心。',
-    refs: ['Griffeath, Cyclic cellular automata (1988)', 'Fisch, Gravner, Griffeath 1991'],
+    refs: ['Bramson & Griffeath 1989, Flux and fixation in cyclic particle systems', 'Fisch, Gravner, Griffeath 1991, Threshold-range scaling of excitable cellular automata', 'Dewdney, Scientific American 1989-08'],
   },
   create(canvas, env) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -64,7 +64,7 @@ export default {
       frame, resize, reseed,
       setTheme(t) { theme = t; buildLut(); },
       setOption(key, v) { if (key === 'preset') { preset = PRESETS[v]; k = preset.k; buildLut(); reseed(); } },
-      pointer(p) { const s = w / canvas.clientWidth; noise(Math.floor(p.x * s), Math.floor(p.y * s), 5); },
+      pointer(p) { if (p.leave) return; const s = w / canvas.clientWidth; noise(Math.floor(p.x * s), Math.floor(p.y * s), 5); },
       stats: () => `${preset.label} · ${w}×${h} · gen ${gen}`,
       destroy() {},
     };

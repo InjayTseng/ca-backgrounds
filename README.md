@@ -68,9 +68,9 @@ Lenia 單隻 Orbium 穩定滑 2500 步、NCA 長出 8 隻蜥蜴且擦掉後 300 
 ## 已知限制
 
 - 分頁在背景時整個迴圈暫停（by design；背景動畫不該在看不見時燒電）。
-- Lenia：Orbium 互撞偶爾會爆成全格迷宮，watchdog 每 3 秒查一次總質量，爆了就整格重播；約每 1–2 分鐘一次。Flow Lenia（質量守恆）能根治，未實作。
+- Lenia：Orbium 互撞偶爾會爆成全格迷宮，watchdog 每 3 秒查一次總質量，太低就在空曠處補一隻、爆了就整格重播；約每 1–2 分鐘一次重播。Flow Lenia（質量守恆）能根治，未實作。
 - Lenia / NCA 需要 WebGL2 + `EXT_color_buffer_float`；沒有的話 Lenia 退到 8-bit（會鈍），NCA 直接報錯。
-- NCA 用零邊界訓練，tile 間不互動；把 emoji 放太靠邊會被邊界吃掉。
+- NCA 用 64×64 零邊界訓練；網頁上相鄰 tile 之間沒有牆（只有整張 grid 外緣是零），靠種子間距 64 格讓圖案互不相碰。目前觀察穩定，但這是訓練分佈外的情境。
 
 ## 對應的學程
 

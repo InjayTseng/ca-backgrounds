@@ -15,7 +15,7 @@ body {
   overflow: hidden; -webkit-font-smoothing: antialiased;
 }
 #stage { position: fixed; inset: 0; z-index: 0; }
-#stage canvas.stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#stage canvas.stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
 .ui { position: fixed; z-index: 2; transition: opacity .35s ease, transform .35s ease; }
 body.ui-hidden .ui { opacity: 0; pointer-events: none; transform: translateY(6px); }
@@ -89,11 +89,18 @@ body.card-collapsed .card { display: none; }
 #motion[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 
 @media (max-width: 760px) {
+  .brand { top: 12px; left: 12px; }
   .brand-text .t2, .toolbar .keys { display: none; }
-  .tabs { bottom: 64px; }
-  .tab { min-width: 0; grid-template-columns: 2.2em 1fr; }
+  /* tabs become one horizontal, scrollable row directly above the toolbar */
+  .tabs { left: 12px; right: 12px; bottom: 62px; flex-direction: row; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .tab { min-width: 0; flex: 0 0 auto; grid-template-columns: auto auto; padding: 6px 10px; }
   .tab .week { display: none; }
-  .card-wrap { top: auto; bottom: 64px; right: 12px; left: 12px; width: auto; max-height: 46vh; }
-  body.card-collapsed .card { display: none; }
+  .tab .name { font-size: 13px; }
+  .toolbar { left: 12px; right: 12px; bottom: 10px; gap: 6px; }
+  .toolbar input[type=range] { width: 70px; }
+  /* card floats at the top and starts collapsed (main.js adds .card-collapsed on small screens) */
+  .card-wrap { top: 56px; right: 12px; left: 12px; width: auto; max-height: calc(100vh - 190px); }
+  .card { padding: 12px 14px; }
+  .card-head h1 { font-size: 24px; }
 }
 @media (prefers-reduced-motion: reduce) { .ui, .card { transition: none; animation: none; } }

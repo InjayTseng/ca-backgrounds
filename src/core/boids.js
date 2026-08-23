@@ -12,13 +12,17 @@ export function stepBoids(b, n, w, h, p = DEFAULTS, mouse = null) {
     const gx = Math.min(gw - 1, (b[i * 4] / cs) | 0), gy = Math.min(gh - 1, (b[i * 4 + 1] / cs) | 0);
     const c = gy * gw + gx; next[i] = head[c]; head[c] = i;
   }
-  const r2 = cs * cs, s2 = p.separation * p.separation;
+  const r2 = cs * cs, s2 = p.separation * p.separation, cells = new Int32Array(9);
   for (let i = 0; i < n; i++) {
     const x = b[i * 4], y = b[i * 4 + 1];
     let sx = 0, sy = 0, ax = 0, ay = 0, cx = 0, cy = 0, cnt = 0;
     const gx = (x / cs) | 0, gy = (y / cs) | 0;
+    let nc = 0;
     for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
       const c = (((gy + oy) % gh + gh) % gh) * gw + (((gx + ox) % gw + gw) % gw);
+      let dup = false; for (let q = 0; q < nc; q++) if (cells[q] === c) { dup = true; break; } // grids < 3 wide alias cells
+      if (dup) continue;
+      cells[nc++] = c;
       for (let j = head[c]; j !== -1; j = next[j]) {
         if (j === i) continue;
         let dx = b[j * 4] - x, dy = b[j * 4 + 1] - y;

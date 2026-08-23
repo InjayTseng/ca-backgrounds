@@ -58,3 +58,26 @@ test('boids stay inside the torus and within the speed clamp', () => {
     assert.ok(sp <= DEFAULTS.maxSpeed + 1e-6 && sp >= DEFAULTS.minSpeed - 1e-6, `speed ${sp}`);
   }
 });
+
+test('boids spatial hash matches brute force even when the grid is < 3 cells tall', () => {
+  const n = 40, w = 400, h = 100; // h / perception(60) -> 2 rows: the aliasing case
+  const a = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) { a[i*4] = (i * 37) % w; a[i*4+1] = (i * 53) % h; a[i*4+2] = ((i % 5) - 2) * 0.7; a[i*4+3] = ((i % 3) - 1) * 0.9; }
+  const c = Float32Array.from(a);
+  stepBoids(a, n, w, h, DEFAULTS, null);
+  // brute-force reference with identical rules and the same in-place (sequential) velocity update
+  const p = DEFAULTS, r2 = p.perception ** 2, s2 = p.separation ** 2;
+  for (let i = 0; i < n; i++) {
+    const x = c[i*4], y = c[i*4+1]; let sx=0, sy=0, ax=0, ay=0, cx=0, cy=0, cnt=0;
+    for (let j = 0; j < n; j++) { if (j === i) continue; let dx = c[j*4]-x, dy = c[j*4+1]-y;
+      if (dx > w/2) dx -= w; else if (dx < -w/2) dx += w; if (dy > h/2) dy -= h; else if (dy < -h/2) dy += h;
+      const d2 = dx*dx+dy*dy; if (d2 > r2 || d2 === 0) continue; cnt++; ax += c[j*4+2]; ay += c[j*4+3]; cx += dx; cy += dy;
+      if (d2 < s2) { const f = 1 - Math.sqrt(d2)/p.separation; sx -= dx*f; sy -= dy*f; } }
+    let vx = c[i*4+2], vy = c[i*4+3];
+    if (cnt) { vx += (ax/cnt - vx)*p.wAli + (cx/cnt)*p.wCoh; vy += (ay/cnt - vy)*p.wAli + (cy/cnt)*p.wCoh; }
+    vx += sx*p.wSep; vy += sy*p.wSep;
+    const sp = Math.hypot(vx, vy) || 1e-6, cl = Math.min(p.maxSpeed, Math.max(p.minSpeed, sp))/sp;
+    c[i*4+2] = vx*cl; c[i*4+3] = vy*cl;
+  }
+  for (let i = 0; i < n; i++) assert.ok(Math.abs(a[i*4+2] - c[i*4+2]) < 1e-4 && Math.abs(a[i*4+3] - c[i*4+3]) < 1e-4, `boid ${i} velocity differs`);
+});

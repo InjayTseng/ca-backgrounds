@@ -10,8 +10,13 @@ const SIMS = [rule1d, life, cyclic, boids, lenia, nca];
 const FPS = 30;
 const $ = (s, r = document) => r.querySelector(s);
 
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked (iframe, private mode) */ } },
+};
+const MOBILE = matchMedia('(max-width: 760px)');
 const state = {
-  sim: null, ctrl: null, canvas: null, theme: localStorage.getItem('ca.theme') || 'dark',
+  sim: null, ctrl: null, canvas: null, theme: (store.get('ca.theme') in THEMES) ? store.get('ca.theme') : 'dark',
   speed: 1, paused: false, hidden: false, raf: 0, last: 0, fpsAcc: 0, fpsN: 0, fps: 0, lastStats: 0,
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
@@ -19,7 +24,7 @@ const state = {
 function setTheme(name) {
   state.theme = name;
   document.documentElement.dataset.theme = name;
-  localStorage.setItem('ca.theme', name);
+  store.set('ca.theme', name);
   state.ctrl?.setTheme(THEMES[name]);
   $('#theme').textContent = name === 'dark' ? '☾ dark' : '☀ light';
 }
@@ -27,7 +32,7 @@ function setTheme(name) {
 function renderTabs() {
   const nav = $('#tabs');
   nav.innerHTML = SIMS.map((s) => `
-    <button class="tab" data-id="${s.id}" role="tab" aria-selected="${state.sim?.id === s.id}">
+    <button class="tab" id="tab-${s.id}" data-id="${s.id}" role="tab" aria-controls="card" aria-selected="${state.sim?.id === s.id}">
       <span class="num">${s.num}</span>
       <span class="name">${s.title}</span>
       <span class="week">${s.week}</span>
@@ -67,7 +72,9 @@ function renderCard(sim, error) {
   }));
 }
 
+let mountSeq = 0;
 async function mount(id) {
+  const my = ++mountSeq;
   const sim = SIMS.find((s) => s.id === id) || SIMS[0];
   if (state.ctrl) { state.ctrl.destroy(); state.ctrl = null; }
   state.canvas?.remove();
@@ -76,19 +83,27 @@ async function mount(id) {
   const canvas = document.createElement('canvas');
   canvas.className = 'stage';
   $('#stage').appendChild(canvas);
+  $('#card').setAttribute('aria-labelledby', `tab-${sim.id}`);
   state.canvas = canvas;
   document.title = `${sim.num} ${sim.title} — 會動的背景標本室`;
   let error = null;
   try {
     const extra = sim.load ? await sim.load() : undefined;
-    if (state.sim !== sim) return; // switched while loading
-    state.ctrl = sim.create(canvas, { theme: THEMES[state.theme] }, extra);
-    if (state.reduced) { state.ctrl.frame(40); } // settle into one frame, then stay paused
+    if (my !== mountSeq) return; // a later mount superseded this one while weights were loading
+    const ctrl = sim.create(canvas, { theme: THEMES[state.theme] }, extra);
+    state.ctrl = ctrl;
+    Object.entries(sim.options ?? {}).forEach(([k, o]) => ctrl.setOption(k, o.value)); // chips persist across tab switches
+    canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      if (state.canvas !== canvas) return; // our own destroy() -> loseContext() on a tab switch, not a real loss
+      state.paused = true; renderCard(sim, 'WebGL context 掉了（GPU reset？）。換個分頁再回來重建。');
+    });
+    if (state.reduced) for (let i = 0; i < 120; i++) ctrl.frame(1); // settle into something worth looking at, then hold
   } catch (e) {
     console.error(e); error = e.message;
-    canvas.getContext('2d')?.clearRect(0, 0, 1, 1);
+    canvas.style.display = 'none';
   }
-  renderCard(sim, error);
+  if (my === mountSeq) renderCard(sim, error);
 }
 
 function loop(t) {
@@ -116,9 +131,11 @@ function bindUI() {
   $('#card-toggle').addEventListener('click', () => document.body.classList.toggle('card-collapsed'));
   window.addEventListener('hashchange', () => mount(location.hash.slice(1)));
   window.addEventListener('resize', () => state.ctrl?.resize());
-  document.addEventListener('visibilitychange', () => { state.paused = document.hidden || !!state.userPaused; });
+  document.addEventListener('visibilitychange', () => { state.paused = document.hidden || !!state.userPaused; $('#pause').textContent = state.paused ? '▶' : '❚❚'; });
+  if (MOBILE.matches) document.body.classList.add('card-collapsed');
   window.addEventListener('keydown', (e) => {
-    if (e.target.closest('input, button, textarea')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]')) return;
     const k = e.key.toLowerCase();
     if (k >= '1' && k <= '6') location.hash = SIMS[+k - 1].id;
     else if (k === 'h') toggleUI();
@@ -126,14 +143,16 @@ function bindUI() {
     else if (k === ' ') { e.preventDefault(); $('#pause').click(); }
     else if (k === 't') setTheme(state.theme === 'dark' ? 'light' : 'dark');
   });
-  const pointer = (e, down, leave = false) => {
+  const overUI = (e) => e.target instanceof Element && e.target.closest('.ui');
+  const pointer = (e, down) => {
     if (!state.ctrl) return;
-    if (e.target.closest('.ui')) { state.ctrl.pointer({ x: -1e4, y: -1e4, down: false, leave: true }); return; }
-    state.ctrl.pointer({ x: e.clientX, y: e.clientY, down, leave });
+    if (overUI(e)) { state.ctrl.pointer({ x: -1, y: -1, down: false, leave: true }); return; } // sims must treat leave as "no pointer"
+    state.ctrl.pointer({ x: e.clientX, y: e.clientY, down, leave: false });
   };
   window.addEventListener('pointermove', (e) => pointer(e, e.buttons > 0));
   window.addEventListener('pointerdown', (e) => pointer(e, true));
-  window.addEventListener('pointerleave', (e) => pointer(e, false, true));
+  // pointerleave does not bubble; listen on the root element (window never sees it in the bubble phase)
+  document.documentElement.addEventListener('pointerleave', () => state.ctrl?.pointer({ x: -1, y: -1, down: false, leave: true }));
   if (state.reduced) {
     $('#motion').hidden = false;
     $('#motion').addEventListener('click', () => { state.forceMotion = !state.forceMotion; $('#motion').setAttribute('aria-pressed', state.forceMotion); });

@@ -84,10 +84,11 @@ const RENDER_FS = `#version 300 es
 precision highp float;
 uniform sampler2D uS0;
 uniform vec3 uBg;
+uniform float uCropX; // screenAspect / gridAspect (<= 1): show the centre of the wider grid without stretching
 in vec2 vUv;
 out vec4 o;
 void main() {
-  vec4 s = texture(uS0, vec2(vUv.x, 1.0 - vUv.y));
+  vec4 s = texture(uS0, vec2(0.5 + (vUv.x - 0.5) * uCropX, 1.0 - vUv.y));
   float a = clamp(s.a, 0.0, 1.0);
   o = vec4(clamp(s.rgb, 0.0, 1.0) + uBg * (1.0 - a), 1.0);
 }`;
@@ -116,7 +117,7 @@ export default {
   create(canvas, env, weights) {
     if (!weights) throw new Error('NCA weights not loaded');
     const { gl, floatRender } = getGL(canvas);
-    if (!floatRender) throw new Error('這台機器的 WebGL2 不支援 float render target（EXT_color_buffer_float），NCA 跑不起來。');
+    if (!floatRender) { gl.getExtension('WEBGL_lose_context')?.loseContext(); throw new Error('這台機器的 WebGL2 不支援 float render target（EXT_color_buffer_float），NCA 跑不起來。'); }
     const upd = program(gl, UPDATE_FS), msk = program(gl, MASK_FS), ren = program(gl, RENDER_FS);
     const w1 = texture(gl, 12, 128, 'rgba32f', Float32Array.from(weights.w1));
     const w2 = texture(gl, 32, 16, 'rgba32f', Float32Array.from(weights.w2));
@@ -135,6 +136,7 @@ export default {
       fbs = sets.map((s) => framebuffer(gl, s));
       reseed();
     }
+    const cropX = () => Math.min(1, (canvas.clientWidth / canvas.clientHeight) / (W / H));
     function seedTile(i) {
       const tx = i % cols, ty = (i / cols) | 0;
       const x = tx * TILE + (TILE >> 1) + ((Math.random() * 12 - 6) | 0), y = ty * TILE + (TILE >> 1) + ((Math.random() * 12 - 6) | 0);
@@ -185,6 +187,7 @@ export default {
       gl.useProgram(ren.prog);
       gl.uniform1i(ren.u.uS0, bind(gl, 0, sets[cur][0]));
       gl.uniform3fv(ren.u.uBg, rgb(theme.bg));
+      gl.uniform1f(ren.u.uCropX, cropX());
       drawQuad(gl);
     }
     function frame(mul) {
@@ -205,7 +208,7 @@ export default {
       setOption(k, v) { if (k === 'brush') erase = v === 'erase'; },
       pointer(p) {
         if (!erase || p.leave) return;
-        damage = [p.x / canvas.clientWidth * W, p.y / canvas.clientHeight * H, 6];
+        damage = [(0.5 + (p.x / canvas.clientWidth - 0.5) * cropX()) * W, p.y / canvas.clientHeight * H, 6];
       },
       stats: () => `${W}×${H} · 16 ch · ${weights.iters} iters · loss ${(+weights.loss).toFixed(4)} · step ${steps}`,
       destroy() { gl.getExtension('WEBGL_lose_context')?.loseContext(); },

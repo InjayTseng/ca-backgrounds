@@ -9,7 +9,7 @@ export default {
   tag: '二維 · 會死 · 要餵',
   options: { rule: { label: 'Rule', values: Object.keys(RULES), labels: Object.fromEntries(Object.entries(RULES).map(([k, v]) => [k, v.label])), value: 'life' } },
   concept: {
-    rule: 'B3/S23：死格有 3 個活鄰居就生，活格有 2 或 3 個就活，其餘死。Conway 1970 年用這四行規則造出滑翔子、槍、還有能跑 Life 的 Life。',
+    rule: 'B3/S23：死格有 3 個活鄰居就生，活格有 2 或 3 個就活，其餘死。Conway 1970 年定的四行規則，之後 Guy 找到滑翔子、Gosper 造出槍、2006 年 OTCA metapixel 讓 Life 跑起 Life。',
     why: '經典，但當背景有個致命問題：隨機湯幾百代後就只剩靜物跟振盪子。這裡用兩招救：每格留一條衰減的拖尾（看得見歷史），以及每隔幾秒從邊緣射進一隻滑翔子、丟一塊湯。Day & Night 規則活性高很多，適合不想餵的人。',
     dies: '會。活性低於閾值或停滯 60 代就重播種；平時靠滑翔子雨續命。',
     cost: '每幀 O(格數)，格子 6px，一般螢幕約 4 萬格，2D canvas 足夠。',
@@ -81,7 +81,7 @@ export default {
       frame, resize, reseed,
       setTheme(t) { theme = t; buildLut(); },
       setOption(k, v) { if (k === 'rule') { ruleKey = v; reseed(); } },
-      pointer(p) { const s = canvas.width / canvas.clientWidth / (canvas.width / w); soup(Math.floor(p.x * s), Math.floor(p.y * s), 4); },
+      pointer(p) { if (p.leave) return; const s = w / canvas.clientWidth; soup(Math.floor(p.x * s), Math.floor(p.y * s), 4); },
       stats: () => `${RULES[ruleKey].label} · ${w}×${h} · gen ${gen} · pop ${pop}`,
       destroy() {},
     };
