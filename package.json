@@ -1,0 +1,10 @@
+{
+  "name": "ca-backgrounds",
+  "private": true,
+  "type": "module",
+  "description": "Six cellular-automata-family web background animations in one page, each with a concept card.",
+  "scripts": {
+    "test": "node --test",
+    "serve": "python3 -m http.server 8787"
+  }
+}

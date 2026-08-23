@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>會動的背景標本室 — CA Backgrounds</title>
+<meta name="description" content="六種細胞自動機家族的網頁背景動畫：Rule 110、Life、Cyclic CA、Boids、Lenia、Neural CA。每個分頁附理念卡。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300;1,9..144,500&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="stage" aria-hidden="true"></div>
+
+  <header class="ui brand">
+    <div class="mark">CA<span>/</span>BG</div>
+    <div class="brand-text">
+      <div class="t1">會動的背景標本室</div>
+      <div class="t2">細胞自動機 × 複雜系統 · 12 週學程的交付物，一週一個會動的東西</div>
+    </div>
+  </header>
+
+  <nav id="tabs" class="ui tabs" role="tablist" aria-label="specimens"></nav>
+
+  <aside class="ui card-wrap">
+    <button id="card-toggle" class="card-toggle" aria-label="toggle card">理念 ▸</button>
+    <section id="card" class="card" role="tabpanel"></section>
+  </aside>
+
+  <footer class="ui toolbar">
+    <label class="speed"><span>speed</span>
+      <input id="speed" type="range" min="-2" max="2" step="0.25" value="0" aria-label="speed">
+      <output id="speedv">1.00×</output>
+    </label>
+    <button id="pause" title="Space">❚❚</button>
+    <button id="reseed" title="R">reseed</button>
+    <button id="theme" title="T">☾ dark</button>
+    <button id="motion" hidden aria-pressed="false" title="系統設定了 reduce motion；按這裡強制播放">motion</button>
+    <button id="hide" title="H">hide UI</button>
+    <span class="keys">1–6 切換 · H 藏 UI · R 重播種 · Space 暫停 · T 主題</span>
+  </footer>
+  <div class="ui-hint">H</div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

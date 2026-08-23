@@ -1,0 +1,5 @@
+.DS_Store
+nca/.venv/
+nca/*.log
+nca/*.tmp
+node_modules/
