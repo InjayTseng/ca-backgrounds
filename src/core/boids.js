@@ -14,6 +14,9 @@ export const DEFAULTS = {
   // reads as a big fish in the tank rather than a chase sequence.
   predRadius: 110, wPred: 0.5, predSpeed: 2.8, predSight: 320, predTurn: 0.06,
   predSep: 90, wPredSep: 0.05,
+  // The pointer moves the predators too, with the same polarity `mood` gives the
+  // flock: it scares them off, or it becomes the bait they chase.
+  predMouseRadius: 220, wPredMouse: 0.09,
 };
 
 const tankMargin = (p, w, h) => Math.max(1, Math.min(p.margin, w / 2, h / 2));
@@ -86,10 +89,11 @@ export function stepBoids(b, n, w, h, p = DEFAULTS, threats = null) {
   for (let i = 0; i < n; i++) reflectInTank(b, i * 4, w, h);
 }
 
-// Each predator turns toward the nearest bird it can see. Brute force over the
-// flock: at two predators that cost is noise next to the flock's own work, and
-// it keeps the hash out of here.
-export function stepPredators(pred, np, b, n, w, h, p = DEFAULTS) {
+// Each predator turns toward the nearest bird it can see, and answers the
+// pointer with whatever polarity the flock is using. Brute force over the flock:
+// at two predators that cost is noise next to the flock's own work, and it keeps
+// the hash out of here.
+export function stepPredators(pred, np, b, n, w, h, p = DEFAULTS, pointer = null) {
   const margin = tankMargin(p, w, h);
   const sight2 = p.predSight * p.predSight, sep2 = p.predSep * p.predSep;
   for (let i = 0; i < np; i++) {
@@ -105,6 +109,13 @@ export function stepPredators(pred, np, b, n, w, h, p = DEFAULTS) {
       if (k === i) continue;
       const dx = x - pred[k * 4], dy = y - pred[k * 4 + 1], d2 = dx * dx + dy * dy;
       if (d2 < sep2 && d2 > 0) { const d = Math.sqrt(d2), f = (1 - d / p.predSep) * p.wPredSep; vx += dx / d * f; vy += dy / d * f; }
+    }
+    if (pointer) { // same sign convention as the flock's threats: attract pulls, otherwise it pushes
+      const dx = x - pointer.x, dy = y - pointer.y, d = Math.hypot(dx, dy);
+      if (d < p.predMouseRadius && d > 0) {
+        const f = (1 - d / p.predMouseRadius) * p.wPredMouse * (pointer.attract ? -1 : 1);
+        vx += dx / d * f; vy += dy / d * f;
+      }
     }
     vx += wallTurn(x, w, margin, p.wEdge);
     vy += wallTurn(y, h, margin, p.wEdge);

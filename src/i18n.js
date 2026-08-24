@@ -91,7 +91,7 @@ export const EN_SIMS = {
       why: 'From grid to agents: the rules stay local, but the substrate becomes moving individuals. Flocks, schools and crowd evacuations all run on this. As a background it is the safest of the six — it neither converges nor explodes — just keep speed and density low so it does not steal attention. The predators turn lazily and are only a little faster than the flock: big fish in the tank, not a chase sequence.',
       dies: 'No. The predators scatter the flock but never eat it, so the population is constant; the thing to watch is that too many birds plus too much cohesion will clump into a blob.',
       cost: 'O(n) with a spatial hash; 300 birds on Canvas 2D is light work. Each predator scans the whole flock for its nearest target, which at two predators costs next to nothing.',
-      interact: 'The pointer is a third predator — switch it to bait and the flock chases it instead.',
+      interact: 'The pointer is a third predator that even the two big fish keep away from; switch it to bait and flock and predators alike come after it.',
     },
   },
   lenia: {

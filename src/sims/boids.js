@@ -15,7 +15,7 @@ export default {
     why: '從格子走到 agent：規則還是局部的，但載體從「格」變成會動的「個體」。鳥群、魚群、人群疏散全是這套。當背景最安全，因為它永遠不會收斂也不會爆炸——只是速度和密度要壓低，不然搶眼。掠食者的轉向刻意調鈍、只比鳥快一點，是缸裡的大魚，不是狩獵紀錄片。',
     dies: '不會。掠食者只驅散不吃掉，所以鳥數恆定；要注意的是太多鳥 + 太大凝聚力會結成一坨。',
     cost: '空間雜湊後 O(n)，300 隻在 2D canvas 上很輕。掠食者對全體鳥做暴力最近搜尋，兩隻的成本相對於鳥群本身可忽略。',
-    interact: '游標是第三隻掠食者——切成誘餌，鳥群就反過來追。',
+    interact: '游標是第三隻掠食者，連兩隻大魚都怕它；切成誘餌，鳥和掠食者就一起反過來追游標。',
     refs: ['Reynolds 1987, Flocks, Herds, and Schools', 'Downey, Think Complexity, Ch. on ABM'],
   },
   create(canvas, env) {
@@ -39,6 +39,7 @@ export default {
       }
       ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
+    const pointer = () => (mouse ? { x: mouse.x, y: mouse.y, attract } : null);
     function threats() {
       const t = mouse ? [{ x: mouse.x, y: mouse.y, attract }] : [];
       for (let i = 0; i < NPRED; i++) t.push({ x: pred[i*4], y: pred[i*4+1], radius: DEFAULTS.predRadius, weight: DEFAULTS.wPred });
@@ -49,7 +50,7 @@ export default {
       let steps = 0;
       while (acc >= 1 && steps < 4) {
         acc -= 1; steps++;
-        stepPredators(pred, NPRED, b, n, w, h, DEFAULTS); // hunt first, so the flock reacts to where they are now
+        stepPredators(pred, NPRED, b, n, w, h, DEFAULTS, pointer()); // hunt first, so the flock reacts to where they are now
         stepBoids(b, n, w, h, DEFAULTS, threats());
       }
       if (!steps) return;

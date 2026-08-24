@@ -17,7 +17,7 @@ Zero build step, zero runtime dependencies, MIT.
 | 05 | Lenia (Orbium) | WebGL2 fragment shader, R=13 ring kernel | Yes — replenish/reseed watchdog |
 | 06 | Neural CA (self-healing lizard) | WebGL2 MRT, inference of PyTorch-trained weights | No |
 
-Tabs 01–03 live on a torus; Boids is the exception — the window is a closed tank, so a bird banks away from a wall as it nears it and reflects off the glass if it still arrives. Two predators share that tank, each turning toward the nearest bird it can see. They scatter the flock but never catch it, so the population is constant; the pointer is a third threat of the same kind, and `mood` flips it to bait.
+Tabs 01–03 live on a torus; Boids is the exception — the window is a closed tank, so a bird banks away from a wall as it nears it and reflects off the glass if it still arrives. Two predators share that tank, each turning toward the nearest bird it can see. They scatter the flock but never catch it, so the population is constant. The pointer is a third threat of the same kind, and `mood` flips it to bait — for the predators as well as the flock, so you can drive the big fish off or lead them around.
 
 ## Run it
 
@@ -82,7 +82,7 @@ The custom domain is configured in `wrangler.jsonc`; deploying requires a wrangl
 ## Verify
 
 ```sh
-npm test               # 17 suites over the pure cores, incl. a boids hash-vs-brute-force equivalence test
+npm test               # 19 suites over the pure cores, incl. a boids hash-vs-brute-force equivalence test
 ```
 
 CI runs the same command on every push and pull request (`.github/workflows/test.yml`). Contributions

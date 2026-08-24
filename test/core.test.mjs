@@ -155,6 +155,26 @@ test('two predators locked on the same bird push apart instead of overlapping', 
   assert.ok(gap > 4, `predators converged instead of separating (gap ${gap.toFixed(1)})`);
 });
 
+test('the pointer moves the predators with the same polarity as the flock', () => {
+  const w = 900, h = 600, none = new Float32Array(0);
+  // the pointer sits off to one side of the heading: dead ahead or behind would
+  // only change speed, and the min-speed clamp would undo that
+  const flee = Float32Array.from([400, 300, DEFAULTS.predSpeed, 0]);
+  stepPredators(flee, 1, none, 0, w, h, DEFAULTS, { x: 400, y: 380, attract: false });
+  assert.ok(flee[3] < 0, `a pointer below should push the predator up (vy ${flee[3]})`);
+
+  const chase = Float32Array.from([400, 300, DEFAULTS.predSpeed, 0]);
+  stepPredators(chase, 1, none, 0, w, h, DEFAULTS, { x: 400, y: 380, attract: true });
+  assert.ok(chase[3] > 0, `as bait it should pull the predator down (vy ${chase[3]})`);
+});
+
+test('a pointer beyond the predator radius leaves it alone', () => {
+  const w = 2000, h = 1200, none = new Float32Array(0);
+  const pred = Float32Array.from([1000, 600, DEFAULTS.predSpeed, 0]);
+  stepPredators(pred, 1, none, 0, w, h, DEFAULTS, { x: 1000, y: 600 + DEFAULTS.predMouseRadius + 50, attract: false });
+  assert.equal(pred[3], 0, 'no vertical deflection from a pointer out of range');
+});
+
 test('a bird inside a predator radius gains velocity away from it', () => {
   const w = 600, h = 400;
   const bird = Float32Array.from([300, 200, 0, 0]);
