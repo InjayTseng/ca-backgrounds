@@ -1,15 +1,20 @@
 # Cloudflare Workers static assets reads this from the deployed directory.
-# Nothing here is content-hashed, so code gets a short TTL (a deploy propagates
-# in minutes) while the large static payloads get a day.
+#
+# Nothing here is content-hashed, and index.html always revalidates, so a cached
+# module can be paired with fresh HTML. Across a deploy that mixes versions: the
+# release that added stepPredators() would have handed a visitor a new
+# sims/boids.js importing it from a cached core/boids.js that has no such export,
+# and the tab would throw. So code revalidates every time — ETags make that a
+# 304 with no body — and only the large, interface-free payloads get a real TTL.
+
+/src/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/styles.css
+  Cache-Control: public, max-age=0, must-revalidate
 
 /nca/*
   Cache-Control: public, max-age=86400
 
 /og.png
   Cache-Control: public, max-age=86400
-
-/src/*
-  Cache-Control: public, max-age=600
-
-/styles.css
-  Cache-Control: public, max-age=600
