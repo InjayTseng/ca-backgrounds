@@ -1,0 +1,15 @@
+# Cloudflare Workers static assets reads this from the deployed directory.
+# Nothing here is content-hashed, so code gets a short TTL (a deploy propagates
+# in minutes) while the large static payloads get a day.
+
+/nca/*
+  Cache-Control: public, max-age=86400
+
+/og.png
+  Cache-Control: public, max-age=86400
+
+/src/*
+  Cache-Control: public, max-age=600
+
+/styles.css
+  Cache-Control: public, max-age=600

@@ -97,27 +97,31 @@ export default {
   id: 'nca',
   num: '06',
   title: 'Neural CA',
-  week: 'WebGL2',
+  engine: 'WebGL2',
   tag: '學出來的規則 · 自癒 · 只有你做得出來',
-  options: { brush: { label: 'Hover', values: ['erase', 'off'], value: 'erase' } },
+  options: { brush: { label: '游標', values: ['erase', 'off'], labels: { erase: '擦除', off: '關閉' }, value: 'erase' } },
   concept: {
     rule: '還是 CA：每格只看 3×3 鄰居。但更新規則不是人寫的，是一個 8k 參數的小網路，用「從一個種子長成這張圖、被砍掉還要長回來」當損失函數訓出來的。',
     why: '所有其他分頁的規則都是人定的，這一頁的規則是學出來的，而且目標是穩態——所以它不會死、不會爆，還會自我修復。把滑鼠滑過去擦掉一塊，它會重新長出來。這是 Levin 講的 morphogenesis 在 64×64 格子上的玩具版，也是你網站背景裡唯一「只有你做得出來」的東西。',
     dies: '不會。訓練目標就是穩態；每個 tile 的質量若歸零會自動補一顆種子。',
     cost: '每格每步約 8k 次乘加 + 2k 次 texel 讀。GPU 上 256×128 格很輕。權重由 nca/train.py 訓出（M 系列約 20 分鐘）。',
-    interact: '滑鼠掃過：擦掉半徑 6 格，看它長回來。',
+    interact: '游標掃過：擦掉半徑 6 格，看它長回來。',
     refs: ['Mordvintsev et al. 2020, Growing Neural Cellular Automata (Distill)', 'Niklasson et al. 2021, Self-Organising Textures', 'Kalkhof et al. 2023, Med-NCA'],
   },
-  async load() {
-    const url = new URL('../../nca/weights.json', import.meta.url);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`No weights yet (${res.status}) — run nca/train.py to generate nca/weights.json.`);
-    return res.json();
+  load() {
+    // one fetch per session: returning to this tab must not re-download the weights
+    this._weights ??= (async () => {
+      const url = new URL('../../nca/weights.json', import.meta.url);
+      const res = await fetch(url);
+      if (!res.ok) throw Object.assign(new Error(`weights.json: HTTP ${res.status}`), { code: 'noWeights' });
+      return res.json();
+    })().catch((e) => { this._weights = null; throw e; });
+    return this._weights;
   },
   create(canvas, env, weights) {
-    if (!weights) throw new Error('NCA weights not loaded');
+    if (!weights) throw Object.assign(new Error('NCA weights not loaded'), { code: 'noWeights' });
     const { gl, floatRender } = getGL(canvas);
-    if (!floatRender) { gl.getExtension('WEBGL_lose_context')?.loseContext(); throw new Error('WebGL2 here lacks EXT_color_buffer_float (float render targets), so the NCA cannot run.'); }
+    if (!floatRender) { gl.getExtension('WEBGL_lose_context')?.loseContext(); throw Object.assign(new Error('EXT_color_buffer_float unavailable'), { code: 'noFloat' }); }
     const upd = program(gl, UPDATE_FS), msk = program(gl, MASK_FS), ren = program(gl, RENDER_FS);
     const w1 = texture(gl, 12, 128, 'rgba32f', Float32Array.from(weights.w1));
     const w2 = texture(gl, 32, 16, 'rgba32f', Float32Array.from(weights.w2));
@@ -129,7 +133,7 @@ export default {
     function resize() {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = Math.floor(canvas.clientWidth * dpr); canvas.height = Math.floor(canvas.clientHeight * dpr);
-      rows = 2; cols = Math.max(1, Math.ceil((canvas.clientWidth / canvas.clientHeight) * rows));
+      rows = 2; cols = Math.max(1, Math.ceil((canvas.clientWidth / Math.max(1, canvas.clientHeight)) * rows));
       W = cols * TILE; H = rows * TILE;
       sets.flat().forEach((t) => gl.deleteTexture(t.tex)); fbs.forEach((f) => gl.deleteFramebuffer(f));
       sets = [0, 1, 2].map(() => [0, 1, 2, 3].map(() => texture(gl, W, H, 'rgba16f')));
@@ -192,7 +196,9 @@ export default {
     }
     function frame(mul) {
       acc += mul; frames++;
-      if (seedQueue.length && frames % 40 === 1) seedTile(seedQueue.shift());
+      // one tile per frame: a visible cascade, but the queue still drains inside the
+      // 120-frame settle that reduced-motion visitors get instead of an animation
+      if (seedQueue.length) seedTile(seedQueue.shift());
       let n = 0;
       while (acc >= 1 && n < 4) { acc -= 1; n++; step(); }
       if (frames % 150 === 0 && !seedQueue.length) {

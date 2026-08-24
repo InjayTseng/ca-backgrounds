@@ -5,15 +5,15 @@ export default {
   id: 'cyclic',
   num: '03',
   title: 'Cyclic CA',
-  week: 'Canvas 2D',
+  engine: 'Canvas 2D',
   tag: '二維 · 螺旋永續 · 零維護',
-  options: { preset: { label: 'Preset', values: Object.keys(PRESETS), labels: Object.fromEntries(Object.entries(PRESETS).map(([k, v]) => [k, v.label])), value: 'spirals' } },
+  options: { preset: { label: '預設', values: Object.keys(PRESETS), labels: Object.fromEntries(Object.entries(PRESETS).map(([k, v]) => [k, v.label])), value: 'spirals' } },
   concept: {
     rule: 'k 種顏色排成一圈。一格若有足夠多的鄰居拿著「下一色」，它就跟著變成下一色。規則只有這一句，沒有出生沒有死亡。範圍、門檻、顏色數三個參數決定它長成螺旋還是湍流。',
     why: '從雜訊開始會經過三個相：碎屑 → 液滴（局部同步的色塊互相吞）→ 螺旋（一旦出現缺陷就自我維持的波源）。螺旋一旦形成就永遠轉下去，這正是背景要的：有變化、沒結局。它是 Greenberg–Hastings 之後最精簡的離散「激發介質」，Dewdney 1989 年在 Scientific American 介紹 Griffeath 的實驗後才出名。',
     dies: '不會。螺旋是拓撲缺陷，沒有外力不會消失。',
     cost: '每幀 O(格數 × 鄰域大小)，4px 格子。R3 的 Moore 鄰域是 48 格，JS 還撐得住。',
-    interact: '滑鼠移動：在游標處撒一把雜訊，會長出新的螺旋中心。',
+    interact: '游標移過或拖曳：在游標處撒一把雜訊，會長出新的螺旋中心。',
     refs: ['Bramson & Griffeath 1989, Flux and fixation in cyclic particle systems', 'Fisch, Gravner, Griffeath 1991, Threshold-range scaling of excitable cellular automata', 'Dewdney, Scientific American 1989-08'],
   },
   create(canvas, env) {
@@ -23,7 +23,7 @@ export default {
     function buildLut() {
       // muted: every stop is pulled most of the way toward the background so it reads as texture, not signal
       const bg = hexToRgb(theme.bg), soft = (c, t) => mix(bg, hexToRgb(c), t);
-      const c0 = soft(theme.bg2, 1), c1 = soft(theme.cool, 0.42), c2 = soft(theme.accent, 0.48), c3 = soft(theme.warm, 0.4);
+      const c0 = soft(theme.bg2, 1), c1 = soft(theme.cool, 0.42), c2 = soft(theme.accent, 0.48), c3 = soft(theme.blue, 0.4);
       lut = new Uint32Array(k);
       for (let i = 0; i < k; i++) {
         const t = i / k; // bg -> cool -> accent -> warm -> bg, a closed ramp so state 0 and k-1 meet

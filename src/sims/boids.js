@@ -1,18 +1,19 @@
 import { stepBoids, DEFAULTS } from '../core/boids.js';
+import { rgba } from '../theme.js';
 
 export default {
   id: 'boids',
   num: '04',
   title: 'Boids',
-  week: 'Canvas 2D',
+  engine: 'Canvas 2D',
   tag: 'agent · 三條規則 · 鳥群自己出現',
-  options: { mood: { label: 'Mouse', values: ['repel', 'attract'], value: 'repel' } },
+  options: { mood: { label: '游標', values: ['repel', 'attract'], labels: { repel: '驅趕', attract: '吸引' }, value: 'repel' } },
   concept: {
-    rule: '每隻鳥只看半徑內的鄰居，做三件事：別撞到（分離）、朝同方向（對齊）、往中心靠（凝聚）。沒有領袖，沒有全域資訊。',
+    rule: '每隻鳥只看半徑內的鄰居，做三件事：別撞到（分離）、朝同方向（對齊）、往中心靠（凝聚）。沒有領袖，沒有全域資訊。視窗就是一只魚缸：靠近邊界會提前轉開，真的撞上就反彈。',
     why: '從格子走到 agent：規則還是局部的，但載體從「格」變成會動的「個體」。鳥群、魚群、人群疏散全是這套。當背景最安全，因為它永遠不會收斂也不會爆炸——只是速度和密度要壓低，不然搶眼。',
     dies: '不會。但要注意：太多鳥 + 太大凝聚力會結成一坨。',
     cost: '空間雜湊後 O(n)，300 隻在 2D canvas 上很輕。',
-    interact: '滑鼠是掠食者（或切成誘餌）。',
+    interact: '游標是掠食者——切成誘餌，鳥群就反過來追。',
     refs: ['Reynolds 1987, Flocks, Herds, and Schools', 'Downey, Think Complexity, Ch. on ABM'],
   },
   create(canvas, env) {
@@ -36,7 +37,7 @@ export default {
       while (acc >= 1 && steps < 4) { acc -= 1; steps++; stepBoids(b, n, w, h, DEFAULTS, mouse ? { ...mouse, attract } : null); }
       if (!steps) return;
       // motion-blur fade
-      ctx.fillStyle = theme.name === 'dark' ? 'rgba(7,11,16,0.16)' : 'rgba(238,244,242,0.16)';
+      ctx.fillStyle = rgba(theme.bg, 0.16);
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.save(); ctx.scale(dpr, dpr);
       ctx.lineWidth = 1.4; ctx.lineCap = 'round';

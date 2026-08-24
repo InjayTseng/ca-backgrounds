@@ -2,12 +2,12 @@
 
 export function getGL(canvas) {
   const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, preserveDrawingBuffer: false });
-  if (!gl) throw new Error('WebGL2 not available');
+  if (!gl) throw Object.assign(new Error('WebGL2 not available'), { code: 'noWebGL2' });
   const floatRender = !!gl.getExtension('EXT_color_buffer_float');
   return { gl, floatRender };
 }
 
-export function compile(gl, type, src) {
+function compile(gl, type, src) {
   const sh = gl.createShader(type);
   gl.shaderSource(sh, src);
   gl.compileShader(sh);
@@ -18,7 +18,7 @@ export function compile(gl, type, src) {
   return sh;
 }
 
-export const QUAD_VS = `#version 300 es
+const QUAD_VS = `#version 300 es
 precision highp float;
 out vec2 vUv;
 void main() {

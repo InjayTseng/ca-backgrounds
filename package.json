@@ -3,15 +3,30 @@
   "private": true,
   "type": "module",
   "description": "Six cellular-automata-family web background animations in one page, each with a concept card.",
+  "keywords": [
+    "cellular-automata",
+    "generative",
+    "canvas",
+    "webgl2",
+    "neural-cellular-automata",
+    "lenia",
+    "boids",
+    "game-of-life",
+    "background-animation"
+  ],
   "scripts": {
     "test": "node --test",
     "serve": "python3 -m http.server 8787",
-    "build": "rm -rf dist && mkdir -p dist/nca && cp index.html styles.css dist/ && cp -R src dist/src && cp nca/weights.json nca/target.png dist/nca/",
+    "build": "rm -rf dist && mkdir -p dist/nca && cp index.html styles.css og.png _headers dist/ && cp -R src dist/src && cp nca/weights.json nca/target.png dist/nca/",
     "deploy": "npm run build && npx wrangler@latest deploy"
   },
   "license": "MIT",
+  "homepage": "https://ca.davidyc.com",
   "repository": {
     "type": "git",
     "url": "https://github.com/InjayTseng/ca-interactive.git"
+  },
+  "bugs": {
+    "url": "https://github.com/InjayTseng/ca-interactive/issues"
   }
 }

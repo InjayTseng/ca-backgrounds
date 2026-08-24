@@ -1,5 +1,5 @@
 import { stepRow, seedRow } from '../core/rule1d.js';
-import { hexToRgb, packRGB, mix } from '../theme.js';
+import { hexToRgb, packRGB, mix, rgba } from '../theme.js';
 
 const INIT = { 30: 'seed', 90: 'seed', 110: 'random', 184: 'random', 54: 'random', 73: 'random' };
 
@@ -7,9 +7,14 @@ export default {
   id: 'rule1d',
   num: '01',
   title: 'Rule 110',
-  week: 'Canvas 2D',
+  engine: 'Canvas 2D',
   tag: '一維 · 決定性 · 永不死',
-  options: { rule: { label: 'Rule', values: [30, 90, 110, 184, 54, 73], value: 110 } },
+  options: {
+    rule: {
+      label: '規則', values: [30, 90, 110, 184, 54, 73], value: 110,
+      labels: { 30: '30 · 混沌', 90: '90 · 碎形', 110: '110 · 滑翔子', 184: '184 · 車流', 54: '54 · 週期', 73: '73 · 塊狀' },
+    },
+  },
   concept: {
     rule: '每個細胞只看左、中、右三格，查一張 8 筆的表決定下一格。256 條 rule 全部寫得出來，110 是其中一條，而且被證明是圖靈完備的。',
     why: '背景是一張往上捲的時空圖：每一幀算一列、推一列。一維所以便宜到不像話，決定性所以永遠不會「死」或「爆」，只會一直生成。Rule 110 的滑翔子在週期背景上互相碰撞，看久了會發現它根本是一台機器。',
@@ -64,7 +69,7 @@ export default {
         drawStripe();
       }
       if (n) { // slow fade of history so the eye is drawn to the fresh edge
-        ctx.fillStyle = theme.name === 'dark' ? 'rgba(7,11,16,0.005)' : 'rgba(238,244,242,0.005)';
+        ctx.fillStyle = rgba(theme.bg, 0.005);
         ctx.fillRect(0, 0, canvas.width, canvas.height - cs);
       }
     }

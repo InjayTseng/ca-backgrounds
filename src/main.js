@@ -1,4 +1,4 @@
-import { THEMES } from './theme.js';
+import { THEMES, applyCssTheme } from './theme.js';
 import { STR, EN_SIMS } from './i18n.js';
 import rule1d from './sims/rule1d.js';
 import life from './sims/life.js';
@@ -8,6 +8,7 @@ import lenia from './sims/lenia.js';
 import nca from './sims/nca.js';
 
 const SIMS = [rule1d, life, cyclic, boids, lenia, nca];
+const DEFAULT_SIM = 'boids'; // the calmest of the six: what a first visit should open on
 const FPS = 30;
 const $ = (s, r = document) => r.querySelector(s);
 
@@ -19,20 +20,39 @@ const MOBILE = matchMedia('(max-width: 760px)');
 const state = {
   sim: null, ctrl: null, canvas: null, theme: (store.get('ca.theme') in THEMES) ? store.get('ca.theme') : 'dark',
   lang: store.get('ca.lang') === 'zh' ? 'zh' : 'en', lastError: null,
-  speed: 1, paused: false, hidden: false, raf: 0, last: 0, fpsAcc: 0, fpsN: 0, fps: 0, lastStats: 0,
+  speed: 1, paused: false, userPaused: false, errorPaused: false, forceMotion: false,
+  raf: 0, last: 0, fpsAcc: 0, fpsN: 0, fps: 0, lastStats: 0,
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
 
 function setTheme(name) {
   state.theme = name;
   document.documentElement.dataset.theme = name;
+  applyCssTheme(THEMES[name]);
   store.set('ca.theme', name);
   state.ctrl?.setTheme(THEMES[name]);
   $('#theme').textContent = name === 'dark' ? '☾ dark' : '☀ light';
 }
 
 const T = () => STR[state.lang];
-const simText = (sim) => state.lang === 'en' && EN_SIMS[sim.id] ? EN_SIMS[sim.id] : { tag: sim.tag, concept: sim.concept };
+
+// English overlays the Chinese originals field by field, so a partial entry in
+// EN_SIMS falls back per string instead of dropping the whole object.
+function simText(sim) {
+  const en = state.lang === 'en' ? EN_SIMS[sim.id] : null;
+  const c = sim.concept;
+  return {
+    tag: en?.tag ?? sim.tag,
+    rule: en?.concept?.rule ?? c.rule,
+    why: en?.concept?.why ?? c.why,
+    dies: en?.concept?.dies ?? c.dies,
+    cost: en?.concept?.cost ?? c.cost,
+    interact: en?.concept?.interact ?? c.interact,
+    refs: en?.concept?.refs ?? c.refs,
+    optLabel: (k) => en?.options?.[k]?.label ?? sim.options[k].label,
+    optValue: (k, v) => en?.options?.[k]?.labels?.[v] ?? sim.options[k].labels?.[v] ?? v,
+  };
+}
 
 function setLang(lang) {
   state.lang = lang;
@@ -44,63 +64,96 @@ function setLang(lang) {
   $('#reseed').textContent = T().reseed;
   $('#hide').textContent = T().hide;
   $('#lang').textContent = T().langBtn;
-  $('#card-toggle').textContent = T().concept + ' ▸';
+  $('#motion').textContent = T().motion;
+  $('#pause').setAttribute('aria-label', T().pause);
+  $('.ui-hint').textContent = T().showUI;
+  syncCardToggle();
   if (state.sim) renderCard(state.sim, state.lastError);
 }
 
-function renderTabs() {
+function buildTabs() {
   const nav = $('#tabs');
   nav.innerHTML = SIMS.map((s) => `
-    <button class="tab" id="tab-${s.id}" data-id="${s.id}" role="tab" aria-controls="card" aria-selected="${state.sim?.id === s.id}">
+    <button class="tab" id="tab-${s.id}" data-id="${s.id}" role="tab" aria-controls="card" aria-selected="false" tabindex="-1">
       <span class="num">${s.num}</span>
       <span class="name">${s.title}</span>
-      <span class="week">${s.week}</span>
+      <span class="engine">${s.engine}</span>
     </button>`).join('');
   nav.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => (location.hash = b.dataset.id)));
+  nav.addEventListener('keydown', (e) => {
+    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1, Home: -SIMS.length, End: SIMS.length }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const from = Math.max(0, SIMS.findIndex((s) => s.id === state.sim?.id));
+    const to = Math.min(SIMS.length - 1, Math.max(0, from + step));
+    location.hash = SIMS[to].id;
+    $(`#tab-${SIMS[to].id}`).focus(); // tabs are never rebuilt, so focus survives the mount
+  });
 }
 
-function renderCard(sim, error) {
-  state.lastError = error ?? null;
-  const t = T();
-  const { tag, concept: c } = simText(sim);
+// Roving tabindex: only the selected tab is in the tab order (ARIA tabs pattern).
+function syncTabs() {
+  $('#tabs').querySelectorAll('.tab').forEach((b) => {
+    const on = b.dataset.id === state.sim?.id;
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+  });
+}
+
+function syncCardToggle() {
+  const open = !document.body.classList.contains('card-collapsed');
+  const btn = $('#card-toggle');
+  btn.textContent = `${T().concept} ${open ? '▾' : '▸'}`;
+  btn.setAttribute('aria-expanded', String(open));
+}
+
+// `err` is { code?, message? }: a code picks a translated, visitor-facing string,
+// and anything without one falls back to the raw message.
+function renderCard(sim, err) {
+  state.lastError = err ?? null;
+  const t = T(), x = simText(sim);
+  const error = err ? (t[err.code] ?? err.message) : null;
   const opts = Object.entries(sim.options || {}).map(([key, o]) => `
-    <div class="opt"><span class="lbl">${o.label}</span>
-      ${o.values.map((v) => `<button class="chip" data-key="${key}" data-val="${v}" aria-pressed="${String(v) === String(o.value)}">${o.labels?.[v] ?? v}</button>`).join('')}
+    <div class="opt"><span class="lbl">${x.optLabel(key)}</span>
+      ${o.values.map((v) => `<button class="chip" data-key="${key}" data-val="${v}" aria-pressed="${String(v) === String(o.value)}">${x.optValue(key, v)}</button>`).join('')}
     </div>`).join('');
   $('#card').innerHTML = `
     <div class="card-head">
       <span class="num">${sim.num}</span>
       <h1>${sim.title}</h1>
-      <span class="week">${sim.week}</span>
+      <span class="engine">${sim.engine}</span>
     </div>
-    <p class="tagline">${tag}</p>
+    <p class="tagline">${x.tag}</p>
     ${error ? `<p class="error">${error}</p>` : ''}
     <dl class="spec">
-      <dt>${t.rule}</dt><dd>${c.rule}</dd>
-      <dt>${t.why}</dt><dd>${c.why}</dd>
-      <dt>${t.dies}</dt><dd>${c.dies}</dd>
-      <dt>${t.cost}</dt><dd>${c.cost}</dd>
-      <dt>${t.interact}</dt><dd>${c.interact}</dd>
+      <dt>${t.rule}</dt><dd>${x.rule}</dd>
+      <dt>${t.why}</dt><dd>${x.why}</dd>
+      <dt>${t.dies}</dt><dd>${x.dies}</dd>
+      <dt>${t.cost}</dt><dd>${x.cost}</dd>
+      <dt>${t.interact}</dt><dd>${x.interact}</dd>
     </dl>
     ${sim.id === 'nca' && !error ? `<img class="target" src="nca/target.png" alt="training target" title="${t.target}">` : ''}
     <div class="opts">${opts}</div>
-    <ul class="refs">${sim.concept.refs.map((r) => `<li>${r}</li>`).join('')}</ul>
+    <ul class="refs">${x.refs.map((r) => `<li>${r}</li>`).join('')}</ul>
     <div class="stats" id="stats"></div>`;
+  // collapsed (the mobile default) still has to say the background is interactive
+  $('#card-brief').innerHTML = `<p class="tagline">${x.tag}</p><p class="brief-interact">${x.interact}</p>`;
   $('#card').querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => {
     sim.options[b.dataset.key].value = b.dataset.val;
     state.ctrl?.setOption(b.dataset.key, b.dataset.val);
-    b.parentElement.querySelectorAll('.chip').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    b.parentElement.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c === b)));
   }));
 }
 
 let mountSeq = 0;
 async function mount(id) {
   const my = ++mountSeq;
-  const sim = SIMS.find((s) => s.id === id) || SIMS[0];
+  const sim = SIMS.find((s) => s.id === id) || SIMS.find((s) => s.id === DEFAULT_SIM);
   if (state.ctrl) { state.ctrl.destroy(); state.ctrl = null; }
   state.canvas?.remove();
   state.sim = sim;
-  renderTabs();
+  setPaused({ error: false }); // a previous sim's crash must not freeze this one
+  syncTabs();
   const canvas = document.createElement('canvas');
   canvas.className = 'stage';
   $('#stage').appendChild(canvas);
@@ -117,11 +170,11 @@ async function mount(id) {
     canvas.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();
       if (state.canvas !== canvas) return; // our own destroy() -> loseContext() on a tab switch, not a real loss
-      state.paused = true; renderCard(sim, 'WebGL context lost (GPU reset?). Switch tabs to rebuild.');
+      setPaused({ error: true }); renderCard(sim, { code: 'lostContext' });
     });
     if (state.reduced) for (let i = 0; i < 120; i++) ctrl.frame(1); // settle into something worth looking at, then hold
   } catch (e) {
-    console.error(e); error = e.message;
+    console.error(e); error = { code: e.code, message: e.message };
     canvas.style.display = 'none';
   }
   if (my === mountSeq) renderCard(sim, error);
@@ -135,7 +188,8 @@ function loop(t) {
   state.fpsAcc += dt; state.fpsN++;
   if (state.fpsAcc > 500) { state.fps = Math.round(1000 * state.fpsN / state.fpsAcc); state.fpsAcc = 0; state.fpsN = 0; }
   if (state.ctrl && !state.paused && !(state.reduced && !state.forceMotion)) {
-    try { state.ctrl.frame(state.speed); } catch (e) { console.error(e); state.paused = true; }
+    try { state.ctrl.frame(state.speed); }
+    catch (e) { console.error(e); setPaused({ error: true }); renderCard(state.sim, { message: e.message }); }
   }
   if (t - state.lastStats > 400 && state.ctrl) {
     state.lastStats = t;
@@ -143,17 +197,29 @@ function loop(t) {
   }
 }
 
+// One writer for `paused`, derived from the three things that can pause the loop.
+function setPaused({ user, error } = {}) {
+  if (user !== undefined) state.userPaused = user;
+  if (error !== undefined) state.errorPaused = error;
+  state.paused = state.userPaused || state.errorPaused || document.hidden;
+  const btn = $('#pause');
+  btn.textContent = state.paused ? '▶' : '❚❚';
+  btn.setAttribute('aria-pressed', String(state.paused));
+}
+
 function bindUI() {
   $('#theme').addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
   $('#lang').addEventListener('click', () => setLang(state.lang === 'en' ? 'zh' : 'en'));
   $('#speed').addEventListener('input', (e) => { state.speed = Math.pow(2, +e.target.value); $('#speedv').textContent = state.speed.toFixed(2) + '×'; });
-  $('#pause').addEventListener('click', () => { state.userPaused = !state.userPaused; state.paused = state.userPaused; $('#pause').textContent = state.paused ? '▶' : '❚❚'; });
+  $('#pause').addEventListener('click', () => setPaused({ user: !state.userPaused, error: false }));
   $('#reseed').addEventListener('click', () => state.ctrl?.reseed());
   $('#hide').addEventListener('click', toggleUI);
-  $('#card-toggle').addEventListener('click', () => document.body.classList.toggle('card-collapsed'));
+  $('.ui-hint').addEventListener('click', toggleUI); // without this, hiding the UI is a dead end on touch
+  $('#card-toggle').addEventListener('click', () => { document.body.classList.toggle('card-collapsed'); syncCardToggle(); });
   window.addEventListener('hashchange', () => mount(location.hash.slice(1)));
-  window.addEventListener('resize', () => state.ctrl?.resize());
-  document.addEventListener('visibilitychange', () => { state.paused = document.hidden || !!state.userPaused; $('#pause').textContent = state.paused ? '▶' : '❚❚'; });
+  let resizeT = 0;
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => state.ctrl?.resize(), 150); });
+  document.addEventListener('visibilitychange', () => setPaused());
   if (MOBILE.matches) document.body.classList.add('card-collapsed');
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -178,18 +244,19 @@ function bindUI() {
   document.documentElement.addEventListener('pointerleave', () => state.ctrl?.pointer({ x: -1, y: -1, down: false, leave: true }));
   if (state.reduced) {
     $('#motion').hidden = false;
-    $('#motion').addEventListener('click', () => { state.forceMotion = !state.forceMotion; $('#motion').setAttribute('aria-pressed', state.forceMotion); });
+    $('#motion').addEventListener('click', () => { state.forceMotion = !state.forceMotion; $('#motion').setAttribute('aria-pressed', String(state.forceMotion)); });
   }
 }
 
 function toggleUI() {
-  state.hidden = !state.hidden;
-  document.body.classList.toggle('ui-hidden', state.hidden);
+  document.body.classList.toggle('ui-hidden');
 }
 
 setTheme(state.theme);
+buildTabs();
 bindUI();
 setLang(state.lang);
-mount(location.hash.slice(1) || SIMS[0].id);
+setPaused();
+mount(location.hash.slice(1) || DEFAULT_SIM);
 state.raf = requestAnimationFrame(loop);
 window.__ca = state; // debug hook: drive frames by hand when rAF is throttled (e.g. hidden tab)

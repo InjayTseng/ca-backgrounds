@@ -5,15 +5,15 @@ export default {
   id: 'life',
   num: '02',
   title: 'Life + trails',
-  week: 'Canvas 2D',
+  engine: 'Canvas 2D',
   tag: '二維 · 會死 · 要餵',
-  options: { rule: { label: 'Rule', values: Object.keys(RULES), labels: Object.fromEntries(Object.entries(RULES).map(([k, v]) => [k, v.label])), value: 'life' } },
+  options: { rule: { label: '規則', values: Object.keys(RULES), labels: Object.fromEntries(Object.entries(RULES).map(([k, v]) => [k, v.label])), value: 'life' } },
   concept: {
     rule: 'B3/S23：死格有 3 個活鄰居就生，活格有 2 或 3 個就活，其餘死。Conway 1970 年定的四行規則，之後 Guy 找到滑翔子、Gosper 造出槍、2006 年 OTCA metapixel 讓 Life 跑起 Life。',
     why: '經典，但當背景有個致命問題：隨機湯幾百代後就只剩靜物跟振盪子。這裡用兩招救：每格留一條衰減的拖尾（看得見歷史），以及每隔幾秒從邊緣射進一隻滑翔子、丟一塊湯。Day & Night 規則活性高很多，適合不想餵的人。',
     dies: '會。活性低於閾值或停滯 60 代就重播種；平時靠滑翔子雨續命。',
     cost: '每幀 O(格數)，格子 6px，一般螢幕約 4 萬格，2D canvas 足夠。',
-    interact: '滑鼠移動：在游標處潑一塊隨機湯。',
+    interact: '游標移過或拖曳：在游標處潑一塊隨機湯。',
     refs: ['Gardner 1970, Scientific American', 'ConwayLife.com wiki: Glider, Gosper gun'],
   },
   create(canvas, env) {
@@ -22,7 +22,7 @@ export default {
     let w = 0, h = 0, a, b, trail, img, px, theme = env.theme, ruleKey = 'life', gen = 0, still = 0, acc = 0, feedT = 0, pop = 0;
     let lut;
     function buildLut() {
-      const bg = hexToRgb(theme.bg), hot = mix(bg, hexToRgb(theme.accent), 0.62), warm = mix(bg, hexToRgb(theme.warm), 0.38), cold = hexToRgb(theme.dim);
+      const bg = hexToRgb(theme.bg), hot = mix(bg, hexToRgb(theme.accent), 0.62), warm = mix(bg, hexToRgb(theme.blue), 0.38), cold = hexToRgb(theme.dim);
       lut = new Uint32Array(256);
       for (let i = 0; i < 256; i++) {
         const t = i / 255;

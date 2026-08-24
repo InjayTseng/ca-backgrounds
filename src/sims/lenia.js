@@ -59,15 +59,15 @@ export default {
   id: 'lenia',
   num: '05',
   title: 'Lenia',
-  week: 'WebGL2',
+  engine: 'WebGL2',
   tag: '連續 · 會死 · 最像活的',
-  options: { density: { label: 'Creatures', values: ['solo', 'few', 'many'], value: 'few' } },
+  options: { density: { label: '生物數', values: ['solo', 'few', 'many'], labels: { solo: '一隻', few: '少量', many: '很多' }, value: 'few' } },
   concept: {
     rule: 'Game of Life 的連續版：狀態是 0–1 的實數，鄰域是半徑 13 的環形 kernel，生長函數是一個鐘形曲線——鄰域「剛剛好」才長，太多太少都退。Orbium 是這組參數下第一隻被發現的生物。',
     why: '這是整個清單裡最像「活的」東西：軟體生物帶著自己的身體在格子上滑，互相繞、互相吞。背景要的模糊、發光、慢速它天生就有。代價是它會死——撞牆、兩隻合體，就散成霧。所以這裡有 watchdog：質量掉到閾值以下就重播種。Flow Lenia（2023）用質量守恆從根本解掉這件事。',
     dies: '會。每 3 秒讀回一次總質量：太低就在空曠處補一隻，爆成迷宮就整格重播。',
     cost: '每格每步 27×27 的 kernel 與狀態各 729 次 texel 讀取，只能 GPU。160 列的網格在 M 系列上很輕，Intel 內顯會吃力。',
-    interact: '點或拖：在游標處放一隻新的 Orbium（隨機朝向）。',
+    interact: '點或拖：在該處放一隻新的 Orbium（隨機朝向）。',
     refs: ['Chan 2019, Lenia: Biology of Artificial Life', 'Plantec et al. 2023, Flow Lenia', 'github.com/Chakazul/Lenia'],
   },
   create(canvas, env) {
@@ -76,14 +76,12 @@ export default {
     const upd = program(gl, UPDATE_FS), ren = program(gl, RENDER_FS);
     const kernelTex = texture(gl, 2 * R + 1, 2 * R + 1, 'r32f', buildKernel());
     let W = 0, H = 0, state = [], fbs = [], cur = 0, theme = env.theme, steps = 0, acc = 0, frames = 0, density = 'few', lastSpawn = 0, resets = 0, spawns = 0, targetCount = 0;
-    const palette = () => theme.name === 'dark'
-      ? [rgb(theme.bg), rgb(theme.cool), rgb('#eafcff')]
-      : [rgb(theme.bg), rgb(theme.cool), rgb('#062b33')];
+    const palette = () => [rgb(theme.bg), rgb(theme.cool), rgb(theme.hi)];
 
     function resize() {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = Math.floor(canvas.clientWidth * dpr); canvas.height = Math.floor(canvas.clientHeight * dpr);
-      H = 160; W = Math.max(64, Math.round(H * canvas.clientWidth / canvas.clientHeight));
+      H = 160; W = Math.max(64, Math.round(H * canvas.clientWidth / Math.max(1, canvas.clientHeight)));
       state.forEach((t) => gl.deleteTexture(t.tex)); fbs.forEach((f) => gl.deleteFramebuffer(f));
       state = [0, 1].map(() => texture(gl, W, H, fmt, null, gl.LINEAR));
       fbs = state.map((t) => framebuffer(gl, [t]));

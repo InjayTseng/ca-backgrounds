@@ -6,7 +6,7 @@ export const RULES = {
   daynight: { label: 'Day & Night B3678/S34678', born: mask([3,6,7,8]), survive: mask([3,4,6,7,8]) },
 };
 
-export function mask(counts) { return counts.reduce((m, k) => m | (1 << k), 0); }
+function mask(counts) { return counts.reduce((m, k) => m | (1 << k), 0); }
 
 export function stepLife(src, dst, w, h, born, survive) {
   let changed = 0, pop = 0;
