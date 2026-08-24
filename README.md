@@ -13,11 +13,11 @@ Zero build step, zero runtime dependencies, MIT.
 | 01 | Rule 110 (switchable 30/90/184/54/73) | Canvas 2D, one row per frame | No |
 | 02 | Life + trails (Life / HighLife / Day & Night) | Canvas 2D + decay trails + glider rain | Yes — watchdog |
 | 03 | Cyclic CA (Spirals 3/5/8/M, CCA 1/1/14/N, Turbulent, 313) | Canvas 2D | No |
-| 04 | Boids | Canvas 2D, spatial hash, reflecting walls | No |
+| 04 | Boids + 2 predators | Canvas 2D, spatial hash, reflecting walls | No |
 | 05 | Lenia (Orbium) | WebGL2 fragment shader, R=13 ring kernel | Yes — replenish/reseed watchdog |
 | 06 | Neural CA (self-healing lizard) | WebGL2 MRT, inference of PyTorch-trained weights | No |
 
-Tabs 01–03 live on a torus; Boids is the exception — the window is a closed tank, so a bird banks away from a wall as it nears it and reflects off the glass if it still arrives.
+Tabs 01–03 live on a torus; Boids is the exception — the window is a closed tank, so a bird banks away from a wall as it nears it and reflects off the glass if it still arrives. Two predators share that tank, each turning toward the nearest bird it can see. They scatter the flock but never catch it, so the population is constant; the pointer is a third threat of the same kind, and `mood` flips it to bait.
 
 ## Run it
 
@@ -82,7 +82,7 @@ The custom domain is configured in `wrangler.jsonc`; deploying requires a wrangl
 ## Verify
 
 ```sh
-npm test               # 12 suites over the pure cores, incl. a boids hash-vs-brute-force equivalence test
+npm test               # 17 suites over the pure cores, incl. a boids hash-vs-brute-force equivalence test
 ```
 
 CI runs the same command on every push and pull request (`.github/workflows/test.yml`). Contributions

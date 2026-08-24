@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { stepRow, seedRow } from '../src/core/rule1d.js';
 import { stepLife, stamp, GLIDER, RULES } from '../src/core/life.js';
 import { stepCyclic, offsets } from '../src/core/cyclic.js';
-import { stepBoids, DEFAULTS } from '../src/core/boids.js';
+import { stepBoids, stepPredators, DEFAULTS } from '../src/core/boids.js';
 
 const row = (s) => Uint8Array.from(s, (c) => +c);
 const str = (r) => Array.from(r).join('');
@@ -89,7 +89,7 @@ test('seedRow puts one cell at the centre, or fills from the rng', () => {
 test('boids stay inside the tank and within the speed clamp', () => {
   const n = 50, w = 200, h = 100, b = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) { b[i*4] = Math.random()*w; b[i*4+1] = Math.random()*h; b[i*4+2] = Math.random()*4-2; b[i*4+3] = Math.random()*4-2; }
-  for (let s = 0; s < 200; s++) stepBoids(b, n, w, h, DEFAULTS, { x: 100, y: 50, attract: false });
+  for (let s = 0; s < 200; s++) stepBoids(b, n, w, h, DEFAULTS, [{ x: 100, y: 50, attract: false }]);
   for (let i = 0; i < n; i++) {
     assert.ok(b[i*4] >= 0 && b[i*4] <= w && b[i*4+1] >= 0 && b[i*4+1] <= h, `boid ${i} left the tank`);
     const sp = Math.hypot(b[i*4+2], b[i*4+3]);
@@ -109,13 +109,69 @@ test('a bird flying at the glass reflects back into the tank', () => {
   assert.ok(top[3] > 0, `vy ${top[3]} should have reversed`);
 });
 
+test('a predator turns toward the nearest bird and closes on it', () => {
+  const w = 900, h = 600;
+  // the bird is off to one side: a target dead ahead or dead behind would only
+  // change the predator's speed, and the min-speed clamp would undo that
+  const pred = Float32Array.from([300, 300, DEFAULTS.predSpeed, 0]);
+  const b = Float32Array.from([550, 380, 0, 0]);
+  stepPredators(pred, 1, b, 1, w, h, DEFAULTS);
+  assert.ok(pred[3] > 0, `heading should bend toward the bird (vy ${pred[3]})`);
+  assert.ok(pred[2] > 0, 'without reversing its cruise direction');
+
+  const gap = () => Math.hypot(b[0] - pred[0], b[1] - pred[1]);
+  const before = gap();
+  for (let s = 0; s < 30; s++) stepPredators(pred, 1, b, 1, w, h, DEFAULTS);
+  assert.ok(gap() < before, `predator should close the gap (${before.toFixed(1)} -> ${gap().toFixed(1)})`);
+});
+
+test('a predator out of sight of the flock keeps cruising', () => {
+  const w = 4000, h = 400;
+  const pred = Float32Array.from([100, 200, DEFAULTS.predSpeed, 0]);
+  const b = Float32Array.from([3900, 200, 0, 0]);  // far beyond predSight
+  stepPredators(pred, 1, b, 1, w, h, DEFAULTS);
+  assert.ok(pred[2] > 0, 'still heading the way it was going');
+  assert.ok(Math.hypot(pred[2], pred[3]) <= DEFAULTS.predSpeed + 1e-6);
+});
+
+test('predators stay in the tank and never exceed their speed cap', () => {
+  const w = 300, h = 200, np = 2;
+  const pred = Float32Array.from([10, 10, -3, -3, 290, 190, 3, 3]); // both aimed at a corner
+  const n = 30, b = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) { b[i*4] = (i * 37) % w; b[i*4+1] = (i * 53) % h; }
+  for (let s = 0; s < 300; s++) stepPredators(pred, np, b, n, w, h, DEFAULTS);
+  for (let i = 0; i < np; i++) {
+    assert.ok(pred[i*4] >= 0 && pred[i*4] <= w && pred[i*4+1] >= 0 && pred[i*4+1] <= h, `predator ${i} left the tank`);
+    assert.ok(Math.hypot(pred[i*4+2], pred[i*4+3]) <= DEFAULTS.predSpeed + 1e-6);
+  }
+});
+
+test('two predators locked on the same bird push apart instead of overlapping', () => {
+  const w = 600, h = 400, np = 2;
+  const pred = Float32Array.from([300, 200, 1, 0, 304, 200, 1, 0]); // 4px apart, same heading
+  const b = Float32Array.from([500, 200, 0, 0]);                    // one bird both will chase
+  for (let s = 0; s < 60; s++) stepPredators(pred, np, b, 1, w, h, DEFAULTS);
+  const gap = Math.hypot(pred[0] - pred[4], pred[1] - pred[5]);
+  assert.ok(gap > 4, `predators converged instead of separating (gap ${gap.toFixed(1)})`);
+});
+
+test('a bird inside a predator radius gains velocity away from it', () => {
+  const w = 600, h = 400;
+  const bird = Float32Array.from([300, 200, 0, 0]);
+  const calm = Float32Array.from(bird);
+  stepBoids(calm, 1, w, h, DEFAULTS, null);
+  stepBoids(bird, 1, w, h, DEFAULTS, [{ x: 260, y: 200, radius: DEFAULTS.predRadius, weight: DEFAULTS.wPred }]);
+  assert.ok(bird[2] > calm[2], 'a predator to the left should push the bird right');
+  assert.ok(bird[0] > calm[0], 'and it should end up further right than if left alone');
+});
+
 test('boids spatial hash matches brute force, mouse and wall forces included', () => {
   const n = 40, w = 400, h = 100; // h / perception(60) -> 2 rows, so the edge cells carry most of the flock
   const a = new Float32Array(n * 4);
   for (let i = 0; i < n; i++) { a[i*4] = (i * 37) % w; a[i*4+1] = (i * 53) % h; a[i*4+2] = ((i % 5) - 2) * 0.7; a[i*4+3] = ((i % 3) - 1) * 0.9; }
   const c = Float32Array.from(a);
   const mouse = { x: 180, y: 40, attract: false };
-  stepBoids(a, n, w, h, DEFAULTS, mouse);
+  stepBoids(a, n, w, h, DEFAULTS, [mouse]);
   // brute-force reference with identical rules and the same in-place (sequential) velocity update
   const p = DEFAULTS, r2 = p.perception ** 2, s2 = p.separation ** 2;
   const margin = Math.max(1, Math.min(p.margin, w / 2, h / 2));

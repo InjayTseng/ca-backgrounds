@@ -1,14 +1,43 @@
 // Boids (Reynolds 1987): separation, alignment, cohesion.
 // The world is a closed tank, not a torus: a bird steers away once it is within
-// `margin` of a wall, and reflects off the glass if it still reaches it.
-// `b` is a flat Float32Array [x, y, vx, vy, ...]; spatial hash keeps it O(n).
+// `margin` of a wall, and reflects off the glass if it still arrives.
+// Threats push the flock around — the pointer and the predators are the same
+// kind of thing, so they share one force path. Predators hunt but never catch,
+// which is what keeps the population constant.
+// `b` and `pred` are flat Float32Arrays [x, y, vx, vy, ...]; a spatial hash
+// keeps the flock O(n).
 export const DEFAULTS = {
   perception: 60, separation: 22, maxSpeed: 2.4, minSpeed: 1.0,
   wSep: 0.08, wAli: 0.05, wCoh: 0.012, wMouse: 0.35, mouseRadius: 140,
   margin: 90, wEdge: 0.14,
+  // A predator turns lazily and is only a little faster than the flock, so it
+  // reads as a big fish in the tank rather than a chase sequence.
+  predRadius: 110, wPred: 0.5, predSpeed: 2.8, predSight: 320, predTurn: 0.06,
+  predSep: 90, wPredSep: 0.05,
 };
 
-export function stepBoids(b, n, w, h, p = DEFAULTS, mouse = null) {
+const tankMargin = (p, w, h) => Math.max(1, Math.min(p.margin, w / 2, h / 2));
+
+// Proportional turn away from one wall inside `margin`; zero in open water.
+function wallTurn(pos, extent, margin, wEdge) {
+  if (pos < margin) return wEdge * (1 - pos / margin);
+  if (pos > extent - margin) return -wEdge * (1 - (extent - pos) / margin);
+  return 0;
+}
+
+// Move one entity by its velocity and reflect it off the glass, in place.
+function reflectInTank(a, i, w, h) {
+  let x = a[i] + a[i + 2], y = a[i + 1] + a[i + 3], vx = a[i + 2], vy = a[i + 3];
+  if (x < 0) { x = -x; vx = -vx; } else if (x > w) { x = 2 * w - x; vx = -vx; }
+  if (y < 0) { y = -y; vy = -vy; } else if (y > h) { y = 2 * h - y; vy = -vy; }
+  a[i] = x < 0 ? 0 : x > w ? w : x;       // a resize can strand one outside; clamp rather than ping-pong
+  a[i + 1] = y < 0 ? 0 : y > h ? h : y;
+  a[i + 2] = vx; a[i + 3] = vy;
+}
+
+// threats: [{ x, y, attract?, radius?, weight? }] — radius/weight default to the
+// pointer's, so a bare { x, y } behaves exactly like the old mouse argument.
+export function stepBoids(b, n, w, h, p = DEFAULTS, threats = null) {
   const cs = p.perception, gw = Math.max(1, Math.ceil(w / cs)), gh = Math.max(1, Math.ceil(h / cs));
   const cell = (v, g) => Math.min(g - 1, Math.max(0, (v / cs) | 0));
   const head = new Int32Array(gw * gh).fill(-1), next = new Int32Array(n);
@@ -17,7 +46,7 @@ export function stepBoids(b, n, w, h, p = DEFAULTS, mouse = null) {
     next[i] = head[c]; head[c] = i;
   }
   const r2 = cs * cs, s2 = p.separation * p.separation;
-  const margin = Math.max(1, Math.min(p.margin, w / 2, h / 2)); // a narrow window still needs room to turn
+  const margin = tankMargin(p, w, h);
   for (let i = 0; i < n; i++) {
     const x = b[i * 4], y = b[i * 4 + 1];
     let sx = 0, sy = 0, ax = 0, ay = 0, cx = 0, cy = 0, cnt = 0;
@@ -42,26 +71,46 @@ export function stepBoids(b, n, w, h, p = DEFAULTS, mouse = null) {
       vy += (ay / cnt - vy) * p.wAli + (cy / cnt) * p.wCoh;
     }
     vx += sx * p.wSep; vy += sy * p.wSep;
-    if (mouse) {
-      const dx = x - mouse.x, dy = y - mouse.y, d = Math.hypot(dx, dy);
-      if (d < p.mouseRadius && d > 0) { const f = (1 - d / p.mouseRadius) * p.wMouse * (mouse.attract ? -1 : 1); vx += dx / d * f; vy += dy / d * f; }
+    if (threats) for (let t = 0; t < threats.length; t++) {
+      const th = threats[t];
+      const radius = th.radius ?? p.mouseRadius, weight = th.weight ?? p.wMouse;
+      const dx = x - th.x, dy = y - th.y, d = Math.hypot(dx, dy);
+      if (d < radius && d > 0) { const f = (1 - d / radius) * weight * (th.attract ? -1 : 1); vx += dx / d * f; vy += dy / d * f; }
     }
-    // proportional turn inside the margin does most of the work; the reflection below is the backstop
-    if (x < margin) vx += p.wEdge * (1 - x / margin);
-    else if (x > w - margin) vx -= p.wEdge * (1 - (w - x) / margin);
-    if (y < margin) vy += p.wEdge * (1 - y / margin);
-    else if (y > h - margin) vy -= p.wEdge * (1 - (h - y) / margin);
+    vx += wallTurn(x, w, margin, p.wEdge);
+    vy += wallTurn(y, h, margin, p.wEdge);
     const sp = Math.hypot(vx, vy) || 1e-6;
     const cl = Math.min(p.maxSpeed, Math.max(p.minSpeed, sp)) / sp;
     b[i * 4 + 2] = vx * cl; b[i * 4 + 3] = vy * cl;
   }
-  for (let i = 0; i < n; i++) {
-    let x = b[i * 4] + b[i * 4 + 2], y = b[i * 4 + 1] + b[i * 4 + 3];
-    let vx = b[i * 4 + 2], vy = b[i * 4 + 3];
-    if (x < 0) { x = -x; vx = -vx; } else if (x > w) { x = 2 * w - x; vx = -vx; }
-    if (y < 0) { y = -y; vy = -vy; } else if (y > h) { y = 2 * h - y; vy = -vy; }
-    b[i * 4] = x < 0 ? 0 : x > w ? w : x;       // a resize can strand a bird outside; clamp rather than ping-pong
-    b[i * 4 + 1] = y < 0 ? 0 : y > h ? h : y;
-    b[i * 4 + 2] = vx; b[i * 4 + 3] = vy;
+  for (let i = 0; i < n; i++) reflectInTank(b, i * 4, w, h);
+}
+
+// Each predator turns toward the nearest bird it can see. Brute force over the
+// flock: at two predators that cost is noise next to the flock's own work, and
+// it keeps the hash out of here.
+export function stepPredators(pred, np, b, n, w, h, p = DEFAULTS) {
+  const margin = tankMargin(p, w, h);
+  const sight2 = p.predSight * p.predSight, sep2 = p.predSep * p.predSep;
+  for (let i = 0; i < np; i++) {
+    const x = pred[i * 4], y = pred[i * 4 + 1];
+    let vx = pred[i * 4 + 2], vy = pred[i * 4 + 3];
+    let best = sight2, tx = 0, ty = 0, found = false;
+    for (let j = 0; j < n; j++) {
+      const dx = b[j * 4] - x, dy = b[j * 4 + 1] - y, d2 = dx * dx + dy * dy;
+      if (d2 < best && d2 > 0) { best = d2; tx = dx; ty = dy; found = true; }
+    }
+    if (found) { const d = Math.sqrt(best); vx += tx / d * p.predTurn; vy += ty / d * p.predTurn; }
+    for (let k = 0; k < np; k++) { // without this the two lock onto one bird and overlap into a single shape
+      if (k === i) continue;
+      const dx = x - pred[k * 4], dy = y - pred[k * 4 + 1], d2 = dx * dx + dy * dy;
+      if (d2 < sep2 && d2 > 0) { const d = Math.sqrt(d2), f = (1 - d / p.predSep) * p.wPredSep; vx += dx / d * f; vy += dy / d * f; }
+    }
+    vx += wallTurn(x, w, margin, p.wEdge);
+    vy += wallTurn(y, h, margin, p.wEdge);
+    const sp = Math.hypot(vx, vy) || 1e-6;
+    const cl = Math.min(p.predSpeed, Math.max(p.minSpeed, sp)) / sp;
+    pred[i * 4 + 2] = vx * cl; pred[i * 4 + 3] = vy * cl;
   }
+  for (let i = 0; i < np; i++) reflectInTank(pred, i * 4, w, h);
 }

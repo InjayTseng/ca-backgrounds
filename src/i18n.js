@@ -87,11 +87,11 @@ export const EN_SIMS = {
     tag: 'agents · three rules · the flock just appears',
     options: { mood: { label: 'Pointer', labels: { repel: 'repel', attract: 'attract' } } },
     concept: {
-      rule: "Every bird sees only the neighbours within a radius and does three things: don't collide (separation), match heading (alignment), drift toward the centre (cohesion). No leader, no global information. The window is a glass tank: birds bank away as they near a wall, and bounce off it if they still arrive.",
-      why: 'From grid to agents: the rules stay local, but the substrate becomes moving individuals. Flocks, schools and crowd evacuations all run on this. As a background it is the safest of the six — it neither converges nor explodes — just keep speed and density low so it does not steal attention.',
-      dies: 'No. But too many birds plus too much cohesion will clump into a blob.',
-      cost: 'O(n) with a spatial hash; 300 birds on Canvas 2D is light work.',
-      interact: 'The pointer is a predator — switch it to bait and the flock chases instead.',
+      rule: "Every bird sees only the neighbours within a radius and does three things: don't collide (separation), match heading (alignment), drift toward the centre (cohesion). No leader, no global information. The window is a glass tank: birds bank away as they near a wall, and bounce off it if they still arrive. Two predators share the tank, each locking onto the nearest bird it can see.",
+      why: 'From grid to agents: the rules stay local, but the substrate becomes moving individuals. Flocks, schools and crowd evacuations all run on this. As a background it is the safest of the six — it neither converges nor explodes — just keep speed and density low so it does not steal attention. The predators turn lazily and are only a little faster than the flock: big fish in the tank, not a chase sequence.',
+      dies: 'No. The predators scatter the flock but never eat it, so the population is constant; the thing to watch is that too many birds plus too much cohesion will clump into a blob.',
+      cost: 'O(n) with a spatial hash; 300 birds on Canvas 2D is light work. Each predator scans the whole flock for its nearest target, which at two predators costs next to nothing.',
+      interact: 'The pointer is a third predator — switch it to bait and the flock chases it instead.',
     },
   },
   lenia: {
