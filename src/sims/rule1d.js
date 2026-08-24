@@ -64,7 +64,7 @@ export default {
         drawStripe();
       }
       if (n) { // slow fade of history so the eye is drawn to the fresh edge
-        ctx.fillStyle = theme.name === 'dark' ? 'rgba(11,13,16,0.005)' : 'rgba(243,239,230,0.005)';
+        ctx.fillStyle = theme.name === 'dark' ? 'rgba(7,11,16,0.005)' : 'rgba(238,244,242,0.005)';
         ctx.fillRect(0, 0, canvas.width, canvas.height - cs);
       }
     }

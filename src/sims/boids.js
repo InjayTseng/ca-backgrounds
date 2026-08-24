@@ -36,7 +36,7 @@ export default {
       while (acc >= 1 && steps < 4) { acc -= 1; steps++; stepBoids(b, n, w, h, DEFAULTS, mouse ? { ...mouse, attract } : null); }
       if (!steps) return;
       // motion-blur fade
-      ctx.fillStyle = theme.name === 'dark' ? 'rgba(11,13,16,0.16)' : 'rgba(243,239,230,0.16)';
+      ctx.fillStyle = theme.name === 'dark' ? 'rgba(7,11,16,0.16)' : 'rgba(238,244,242,0.16)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.save(); ctx.scale(dpr, dpr);
       ctx.lineWidth = 1.4; ctx.lineCap = 'round';

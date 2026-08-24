@@ -77,8 +77,8 @@ export default {
     const kernelTex = texture(gl, 2 * R + 1, 2 * R + 1, 'r32f', buildKernel());
     let W = 0, H = 0, state = [], fbs = [], cur = 0, theme = env.theme, steps = 0, acc = 0, frames = 0, density = 'few', lastSpawn = 0, resets = 0, spawns = 0, targetCount = 0;
     const palette = () => theme.name === 'dark'
-      ? [rgb(theme.bg), rgb(theme.cool), rgb('#f4fbff')]
-      : [rgb(theme.bg), rgb(theme.cool), rgb('#0d2b33')];
+      ? [rgb(theme.bg), rgb(theme.cool), rgb('#eafcff')]
+      : [rgb(theme.bg), rgb(theme.cool), rgb('#062b33')];
 
     function resize() {
       const dpr = Math.min(2, window.devicePixelRatio || 1);

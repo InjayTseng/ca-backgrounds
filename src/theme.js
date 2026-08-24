@@ -2,13 +2,13 @@
 export const THEMES = {
   dark: {
     name: 'dark',
-    bg: '#0b0d10', bg2: '#11151a', ink: '#e8e3d6', muted: '#7c8592',
-    accent: '#e8b04b', cool: '#6fd3e8', warm: '#ff7a59', moss: '#8bc34a', dim: '#252a32',
+    bg: '#070b10', bg2: '#0c1219', ink: '#d7e6e2', muted: '#6e8290',
+    accent: '#35e0a0', cool: '#48b6ff', warm: '#3d7bff', moss: '#8bc34a', dim: '#1a2530',
   },
   light: {
     name: 'light',
-    bg: '#f3efe6', bg2: '#e9e3d6', ink: '#1b1a17', muted: '#6b6860',
-    accent: '#b8761a', cool: '#1f7a8c', warm: '#c0392b', moss: '#4f7a28', dim: '#d6cfbf',
+    bg: '#eef4f2', bg2: '#e2ebe8', ink: '#0d1b1a', muted: '#5c6f6e',
+    accent: '#0d9e6d', cool: '#0e7490', warm: '#2563eb', moss: '#4f7a28', dim: '#cddbd6',
   },
 };
 
