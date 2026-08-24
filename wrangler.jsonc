@@ -2,7 +2,7 @@
 // https://ca.davidyc.com (the custom_domain route auto-provisions DNS).
 //   npm run deploy
 {
-  "name": "ca-backgrounds",
+  "name": "ca-interactive",
   "compatibility_date": "2026-08-01",
   "assets": { "directory": "./dist" },
   "routes": [{ "pattern": "ca.davidyc.com", "custom_domain": true }]
