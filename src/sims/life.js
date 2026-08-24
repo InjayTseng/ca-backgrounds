@@ -5,7 +5,7 @@ export default {
   id: 'life',
   num: '02',
   title: 'Life + trails',
-  week: 'W2',
+  week: 'Canvas 2D',
   tag: '二維 · 會死 · 要餵',
   options: { rule: { label: 'Rule', values: Object.keys(RULES), labels: Object.fromEntries(Object.entries(RULES).map(([k, v]) => [k, v.label])), value: 'life' } },
   concept: {

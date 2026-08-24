@@ -97,7 +97,7 @@ export default {
   id: 'nca',
   num: '06',
   title: 'Neural CA',
-  week: 'W9–10',
+  week: 'WebGL2',
   tag: '學出來的規則 · 自癒 · 只有你做得出來',
   options: { brush: { label: 'Hover', values: ['erase', 'off'], value: 'erase' } },
   concept: {
@@ -111,13 +111,13 @@ export default {
   async load() {
     const url = new URL('../../nca/weights.json', import.meta.url);
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`沒有權重檔（${res.status}）。先跑 nca/train.py，它會寫出 nca/weights.json。`);
+    if (!res.ok) throw new Error(`No weights yet (${res.status}) — run nca/train.py to generate nca/weights.json.`);
     return res.json();
   },
   create(canvas, env, weights) {
     if (!weights) throw new Error('NCA weights not loaded');
     const { gl, floatRender } = getGL(canvas);
-    if (!floatRender) { gl.getExtension('WEBGL_lose_context')?.loseContext(); throw new Error('這台機器的 WebGL2 不支援 float render target（EXT_color_buffer_float），NCA 跑不起來。'); }
+    if (!floatRender) { gl.getExtension('WEBGL_lose_context')?.loseContext(); throw new Error('WebGL2 here lacks EXT_color_buffer_float (float render targets), so the NCA cannot run.'); }
     const upd = program(gl, UPDATE_FS), msk = program(gl, MASK_FS), ren = program(gl, RENDER_FS);
     const w1 = texture(gl, 12, 128, 'rgba32f', Float32Array.from(weights.w1));
     const w2 = texture(gl, 32, 16, 'rgba32f', Float32Array.from(weights.w2));

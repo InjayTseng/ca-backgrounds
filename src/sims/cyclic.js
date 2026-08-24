@@ -5,8 +5,8 @@ export default {
   id: 'cyclic',
   num: '03',
   title: 'Cyclic CA',
-  week: '加映',
-  tag: '二維 · 螺旋永續 · 不在學程',
+  week: 'Canvas 2D',
+  tag: '二維 · 螺旋永續 · 零維護',
   options: { preset: { label: 'Preset', values: Object.keys(PRESETS), labels: Object.fromEntries(Object.entries(PRESETS).map(([k, v]) => [k, v.label])), value: 'spirals' } },
   concept: {
     rule: 'k 種顏色排成一圈。一格若有足夠多的鄰居拿著「下一色」，它就跟著變成下一色。規則只有這一句，沒有出生沒有死亡。範圍、門檻、顏色數三個參數決定它長成螺旋還是湍流。',

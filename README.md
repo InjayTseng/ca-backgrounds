@@ -1,84 +1,91 @@
-# ca-backgrounds — 會動的背景標本室
+# ca-backgrounds — Living Backgrounds
 
-**Live: https://ca.davidyc.com** · Six cellular-automata-family web background animations in one tabbed page — Rule 110, Life, Cyclic CA, Boids, Lenia, and a self-healing Neural CA (WebGL2 inference of PyTorch-trained weights). Zero build, zero runtime dependencies, MIT.
+**Live: https://ca.davidyc.com**
 
-六種「細胞自動機家族」的網頁背景動畫，放在同一頁的六個分頁裡，每個分頁附一張理念卡：
-規則是什麼、為什麼適合當背景、會不會死、成本、對應 12 週學程的哪一週、滑鼠怎麼互動。
+Six families of cellular automata, each running as a full-page web background animation, in one page with six tabs. Every tab ships with a concept card: what the rule is, why it works as a background, whether it dies, what it costs, and how the mouse interacts with it. English / 中文 toggle built in (`L`).
 
-| # | 分頁 | 技術 | 週次 | 會不會死 |
-|---|---|---|---|---|
-| 01 | Rule 110（30/90/184/54/73 可切） | Canvas 2D，每幀推一列 | W1 | 不會 |
-| 02 | Life + trails（Life / HighLife / Day & Night） | Canvas 2D + 拖尾 + 滑翔子雨 | W2 | 會，有 watchdog |
-| 03 | Cyclic CA（Spirals 3/5/8/M、CCA 1/1/14/N、Turbulent、313） | Canvas 2D | 加映 | 不會 |
-| 04 | Boids | Canvas 2D，空間雜湊 | W7 | 不會 |
-| 05 | Lenia（Orbium） | WebGL2 fragment shader，R=13 環形 kernel | W11 | 會，watchdog 補貨／重播 |
-| 06 | Neural CA（自癒蜥蜴） | WebGL2 MRT，PyTorch 訓出的 8k 參數權重 | W9–10 | 不會 |
+Zero build step, zero runtime dependencies, MIT.
 
-## 跑起來
+| # | Tab | Engine | Dies? |
+|---|---|---|---|
+| 01 | Rule 110 (switchable 30/90/184/54/73) | Canvas 2D, one row per frame | No |
+| 02 | Life + trails (Life / HighLife / Day & Night) | Canvas 2D + decay trails + glider rain | Yes — watchdog |
+| 03 | Cyclic CA (Spirals 3/5/8/M, CCA 1/1/14/N, Turbulent, 313) | Canvas 2D | No |
+| 04 | Boids | Canvas 2D, spatial hash | No |
+| 05 | Lenia (Orbium) | WebGL2 fragment shader, R=13 ring kernel | Yes — replenish/reseed watchdog |
+| 06 | Neural CA (self-healing lizard) | WebGL2 MRT, inference of PyTorch-trained weights | No |
+
+## Run it
 
 ```sh
 npm run serve          # python3 -m http.server 8787
 open http://localhost:8787/
 ```
 
-零 build、零 npm 依賴。ES modules 需要 http，不能直接開檔案。
+ES modules need http; opening the file directly won't work.
 
-鍵盤：`1–6` 切分頁、`H` 藏 UI（只剩背景）、`R` 重播種、`Space` 暫停、`T` 切主題。
+Keyboard: `1–6` switch tabs · `H` hide the UI (background only) · `R` reseed · `Space` pause · `T` theme · `L` language.
 
-## 結構
+## Layout
 
 ```
-index.html / styles.css      殼：分頁、理念卡、工具列、主題 token
-src/main.js                  路由（hash）、30fps 迴圈、visibility / reduced-motion、滑鼠、UI
-src/theme.js                 深／淺兩組調色
-src/gl.js                    WebGL2 小工具（program、float texture、FBO、全螢幕 quad）
-src/core/*.js                純函數的 step 核心（可測）：rule1d、life、cyclic、boids
-src/sims/*.js                六個 sim 模組，各自實作同一個介面
-nca/train.py                 Growing NCA 訓練器（PyTorch，MPS），輸出 nca/weights.json + target.png
+index.html / styles.css      shell: tabs, concept card, toolbar, theme tokens
+src/main.js                  hash router, 30fps loop, visibility / reduced-motion, pointer, UI
+src/i18n.js                  English strings (Chinese originals live in the sim modules)
+src/theme.js                 dark / light palettes
+src/gl.js                    WebGL2 helpers (programs, float textures, FBOs, fullscreen quad)
+src/core/*.js                pure, testable step cores: rule1d, life, cyclic, boids
+src/sims/*.js                six sim modules implementing one shared interface
+nca/train.py                 Growing-NCA trainer (PyTorch, MPS) -> nca/weights.json + target.png
 test/core.test.mjs           node --test
 ```
 
-每個 sim 模組 export：
+Each sim module exports:
 
 ```js
 { id, num, title, week, tag, options?, concept: { rule, why, dies, cost, interact, refs },
-  load?(),                       // 非同步前置（NCA 讀權重）
+  load?(),                       // async preload (NCA fetches its weights)
   create(canvas, env, extra) => { frame(mul), resize(), reseed(), setTheme(t), setOption(k, v), pointer(p), stats(), destroy() } }
 ```
 
-## NCA 權重
+## NCA weights
 
-`nca/weights.json` 是 `nca/train.py` 訓出來的（6000 iters，M 系列約 20 分鐘）。要換 emoji：
+`nca/weights.json` is produced by `nca/train.py` (6000 iters, ~20 min on Apple silicon). To grow a different emoji:
 
 ```sh
 uv venv nca/.venv -p 3.12 && uv pip install --python nca/.venv/bin/python torch numpy pillow
 nca/.venv/bin/python nca/train.py --emoji 🦎 --iters 6000
 ```
 
-shader 與訓練器共用的契約（channel 順序、perception 排列、alive mask、fire rate）寫在 `train.py` 頂部的 docstring；改一邊要改另一邊。
+The contract shared between the trainer and the WebGL shader (channel order, perception layout, alive mask, fire rate) is documented in the docstring at the top of `train.py`; change one side and you must change the other.
 
-## 驗證
+## Deploy
 
 ```sh
-npm test                       # 6 個純函數測試（rule 110/30/90、glider、blinker、cyclic、boids）
+npm run deploy         # builds dist/ and deploys via Cloudflare Workers static assets
 ```
 
-視覺驗證用 Chrome：頁面暴露 `window.__ca`，在分頁為 hidden（rAF 被凍結）時可以手動 `__ca.ctrl.frame(1)` 推進。
-2026-08-24 六個分頁都在 Chrome 上截圖確認過：Rule 110 的滑翔子、Life 拖尾、Cyclic 兩種螺旋、Boids 成群、
-Lenia 單隻 Orbium 穩定滑 2500 步、NCA 長出 8 隻蜥蜴且擦掉後 300 步內長回來。
+The custom domain is configured in `wrangler.jsonc`; deploying requires a wrangler login on the account that owns the zone.
 
-## 已知限制
+## Verify
 
-- 分頁在背景時整個迴圈暫停（by design；背景動畫不該在看不見時燒電）。
-- Lenia：Orbium 互撞偶爾會爆成全格迷宮，watchdog 每 3 秒查一次總質量，太低就在空曠處補一隻、爆了就整格重播；約每 1–2 分鐘一次重播。Flow Lenia（質量守恆）能根治，未實作。
-- Lenia / NCA 需要 WebGL2 + `EXT_color_buffer_float`；沒有的話 Lenia 退到 8-bit（會鈍），NCA 直接報錯。
-- NCA 用 64×64 零邊界訓練；網頁上相鄰 tile 之間沒有牆（只有整張 grid 外緣是零），靠種子間距 64 格讓圖案互不相碰。目前觀察穩定，但這是訓練分佈外的情境。
+```sh
+npm test               # 6 pure-core suites + a boids hash-vs-brute-force equivalence test
+```
 
-## 對應的學程
+Visual verification is manual: the page exposes `window.__ca`, so when the tab is hidden (rAF frozen) you can still drive `__ca.ctrl.frame(1)` by hand. All six tabs were screenshot-verified in Chrome: Rule 110 gliders, Life trails, both cyclic spiral regimes, flocking boids, a lone Orbium stable for 2,500 steps, and the NCA growing eight lizards then healing erased patches within 300 steps.
 
-這個 repo 是「細胞自動機 × 複雜系統 12 週學程」的交付物容器：每週的「會動的東西」就是一個分頁。
-W1 Rule 110、W2 Life、W7 Boids、W9–10 NCA、W11 Lenia；Cyclic CA 不在學程裡，純粹因為它太適合當背景。
+## Known limits
+
+- The whole loop pauses while the tab is hidden — deliberate; a background should not burn battery unseen.
+- Lenia: colliding Orbiums occasionally blow up into a full-grid labyrinth. The watchdog reads total mass every 3 s, replenishes when thin, reseeds when exploded (roughly once every 1–2 minutes). Flow Lenia (mass-conserving) would fix this at the root; not implemented.
+- Lenia / NCA need WebGL2 + `EXT_color_buffer_float`; without it Lenia falls back to 8-bit (visibly crunchy) and the NCA refuses to run.
+- The NCA was trained on a 64×64 zero-padded grid; on the page, neighbouring tiles share an open boundary and rely on seed spacing to stay apart. Stable in observation, but out of the training distribution.
+
+## 中文摘要
+
+六種細胞自動機家族做成同一頁六個分頁的網頁背景動畫，每頁附理念卡（規則、為何適合當背景、會不會死、成本、互動）。介面中英雙語（`L` 切換）。零 build、零依賴。06 的 Neural CA 權重由 `nca/train.py` 在本機訓練（Growing NCA，Mordvintsev 2020），塞進 WebGL2 fragment shader 推論，擦掉會自己長回來。
 
 ## License
 
-MIT。Orbium 初始圖樣出自 Bert Chan 的 Lenia（github.com/Chakazul/Lenia，MIT），來源標注在 `src/sims/orbium.js`。
+MIT. The Orbium pattern comes from Bert Chan's Lenia (github.com/Chakazul/Lenia, MIT); source noted in `src/sims/orbium.js`.

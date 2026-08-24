@@ -59,7 +59,7 @@ export default {
   id: 'lenia',
   num: '05',
   title: 'Lenia',
-  week: 'W11',
+  week: 'WebGL2',
   tag: '連續 · 會死 · 最像活的',
   options: { density: { label: 'Creatures', values: ['solo', 'few', 'many'], value: 'few' } },
   concept: {

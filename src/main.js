@@ -1,4 +1,5 @@
 import { THEMES } from './theme.js';
+import { STR, EN_SIMS } from './i18n.js';
 import rule1d from './sims/rule1d.js';
 import life from './sims/life.js';
 import cyclic from './sims/cyclic.js';
@@ -17,6 +18,7 @@ const store = {
 const MOBILE = matchMedia('(max-width: 760px)');
 const state = {
   sim: null, ctrl: null, canvas: null, theme: (store.get('ca.theme') in THEMES) ? store.get('ca.theme') : 'dark',
+  lang: store.get('ca.lang') === 'zh' ? 'zh' : 'en', lastError: null,
   speed: 1, paused: false, hidden: false, raf: 0, last: 0, fpsAcc: 0, fpsN: 0, fps: 0, lastStats: 0,
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
 };
@@ -27,6 +29,23 @@ function setTheme(name) {
   store.set('ca.theme', name);
   state.ctrl?.setTheme(THEMES[name]);
   $('#theme').textContent = name === 'dark' ? '☾ dark' : '☀ light';
+}
+
+const T = () => STR[state.lang];
+const simText = (sim) => state.lang === 'en' && EN_SIMS[sim.id] ? EN_SIMS[sim.id] : { tag: sim.tag, concept: sim.concept };
+
+function setLang(lang) {
+  state.lang = lang;
+  store.set('ca.lang', lang);
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
+  $('.brand-text .t1').textContent = T().t1;
+  $('.brand-text .t2').textContent = T().t2;
+  $('.toolbar .keys').textContent = T().keys;
+  $('#reseed').textContent = T().reseed;
+  $('#hide').textContent = T().hide;
+  $('#lang').textContent = T().langBtn;
+  $('#card-toggle').textContent = T().concept + ' ▸';
+  if (state.sim) renderCard(state.sim, state.lastError);
 }
 
 function renderTabs() {
@@ -41,7 +60,9 @@ function renderTabs() {
 }
 
 function renderCard(sim, error) {
-  const c = sim.concept;
+  state.lastError = error ?? null;
+  const t = T();
+  const { tag, concept: c } = simText(sim);
   const opts = Object.entries(sim.options || {}).map(([key, o]) => `
     <div class="opt"><span class="lbl">${o.label}</span>
       ${o.values.map((v) => `<button class="chip" data-key="${key}" data-val="${v}" aria-pressed="${String(v) === String(o.value)}">${o.labels?.[v] ?? v}</button>`).join('')}
@@ -52,18 +73,18 @@ function renderCard(sim, error) {
       <h1>${sim.title}</h1>
       <span class="week">${sim.week}</span>
     </div>
-    <p class="tagline">${sim.tag}</p>
+    <p class="tagline">${tag}</p>
     ${error ? `<p class="error">${error}</p>` : ''}
     <dl class="spec">
-      <dt>規則</dt><dd>${c.rule}</dd>
-      <dt>為何當背景</dt><dd>${c.why}</dd>
-      <dt>會不會死</dt><dd>${c.dies}</dd>
-      <dt>成本</dt><dd>${c.cost}</dd>
-      <dt>互動</dt><dd>${c.interact}</dd>
+      <dt>${t.rule}</dt><dd>${c.rule}</dd>
+      <dt>${t.why}</dt><dd>${c.why}</dd>
+      <dt>${t.dies}</dt><dd>${c.dies}</dd>
+      <dt>${t.cost}</dt><dd>${c.cost}</dd>
+      <dt>${t.interact}</dt><dd>${c.interact}</dd>
     </dl>
-    ${sim.id === 'nca' && !error ? `<img class="target" src="nca/target.png" alt="training target" title="訓練目標（64×64）">` : ''}
+    ${sim.id === 'nca' && !error ? `<img class="target" src="nca/target.png" alt="training target" title="${t.target}">` : ''}
     <div class="opts">${opts}</div>
-    <ul class="refs">${c.refs.map((r) => `<li>${r}</li>`).join('')}</ul>
+    <ul class="refs">${sim.concept.refs.map((r) => `<li>${r}</li>`).join('')}</ul>
     <div class="stats" id="stats"></div>`;
   $('#card').querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => {
     sim.options[b.dataset.key].value = b.dataset.val;
@@ -85,7 +106,7 @@ async function mount(id) {
   $('#stage').appendChild(canvas);
   $('#card').setAttribute('aria-labelledby', `tab-${sim.id}`);
   state.canvas = canvas;
-  document.title = `${sim.num} ${sim.title} — 會動的背景標本室`;
+  document.title = `${sim.num} ${sim.title} — Living Backgrounds`;
   let error = null;
   try {
     const extra = sim.load ? await sim.load() : undefined;
@@ -96,7 +117,7 @@ async function mount(id) {
     canvas.addEventListener('webglcontextlost', (e) => {
       e.preventDefault();
       if (state.canvas !== canvas) return; // our own destroy() -> loseContext() on a tab switch, not a real loss
-      state.paused = true; renderCard(sim, 'WebGL context 掉了（GPU reset？）。換個分頁再回來重建。');
+      state.paused = true; renderCard(sim, 'WebGL context lost (GPU reset?). Switch tabs to rebuild.');
     });
     if (state.reduced) for (let i = 0; i < 120; i++) ctrl.frame(1); // settle into something worth looking at, then hold
   } catch (e) {
@@ -124,6 +145,7 @@ function loop(t) {
 
 function bindUI() {
   $('#theme').addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
+  $('#lang').addEventListener('click', () => setLang(state.lang === 'en' ? 'zh' : 'en'));
   $('#speed').addEventListener('input', (e) => { state.speed = Math.pow(2, +e.target.value); $('#speedv').textContent = state.speed.toFixed(2) + '×'; });
   $('#pause').addEventListener('click', () => { state.userPaused = !state.userPaused; state.paused = state.userPaused; $('#pause').textContent = state.paused ? '▶' : '❚❚'; });
   $('#reseed').addEventListener('click', () => state.ctrl?.reseed());
@@ -142,6 +164,7 @@ function bindUI() {
     else if (k === 'r') state.ctrl?.reseed();
     else if (k === ' ') { e.preventDefault(); $('#pause').click(); }
     else if (k === 't') setTheme(state.theme === 'dark' ? 'light' : 'dark');
+    else if (k === 'l') setLang(state.lang === 'en' ? 'zh' : 'en');
   });
   const overUI = (e) => e.target instanceof Element && e.target.closest('.ui');
   const pointer = (e, down) => {
@@ -166,6 +189,7 @@ function toggleUI() {
 
 setTheme(state.theme);
 bindUI();
+setLang(state.lang);
 mount(location.hash.slice(1) || SIMS[0].id);
 state.raf = requestAnimationFrame(loop);
 window.__ca = state; // debug hook: drive frames by hand when rAF is throttled (e.g. hidden tab)

@@ -7,7 +7,7 @@ export default {
   id: 'rule1d',
   num: '01',
   title: 'Rule 110',
-  week: 'W1',
+  week: 'Canvas 2D',
   tag: '一維 · 決定性 · 永不死',
   options: { rule: { label: 'Rule', values: [30, 90, 110, 184, 54, 73], value: 110 } },
   concept: {

@@ -4,7 +4,7 @@ export default {
   id: 'boids',
   num: '04',
   title: 'Boids',
-  week: 'W7',
+  week: 'Canvas 2D',
   tag: 'agent · 三條規則 · 鳥群自己出現',
   options: { mood: { label: 'Mouse', values: ['repel', 'attract'], value: 'repel' } },
   concept: {

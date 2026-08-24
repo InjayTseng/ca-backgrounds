@@ -1,0 +1,99 @@
+// English strings. The Chinese originals live inside each sim module
+// (src/sims/*.js — the `tag` and `concept` fields); this file overlays English
+// on top of them, so translations stay in one place.
+
+export const STR = {
+  en: {
+    concept: 'Concept',
+    rule: 'Rule',
+    why: 'As background',
+    dies: 'Does it die?',
+    cost: 'Cost',
+    interact: 'Interact',
+    t1: 'A specimen room of living backgrounds',
+    t2: 'Six families of cellular automata as living web backgrounds — each with the idea behind it',
+    keys: '1–6 switch · H hide UI · R reseed · Space pause · T theme · L language',
+    reseed: 'reseed',
+    hide: 'hide UI',
+    target: 'training target (64×64)',
+    langBtn: '中',
+  },
+  zh: {
+    concept: '理念',
+    rule: '規則',
+    why: '為何當背景',
+    dies: '會不會死',
+    cost: '成本',
+    interact: '互動',
+    t1: '會動的背景標本室',
+    t2: '六種細胞自動機家族的活背景，每一頁附上它背後的理念',
+    keys: '1–6 切換 · H 藏 UI · R 重播種 · Space 暫停 · T 主題 · L 語言',
+    reseed: '重播種',
+    hide: '藏 UI',
+    target: '訓練目標（64×64）',
+    langBtn: 'EN',
+  },
+};
+
+export const EN_SIMS = {
+  rule1d: {
+    tag: '1-D · deterministic · never dies',
+    concept: {
+      rule: 'Each cell looks at three cells — left, self, right — and consults an 8-row lookup table. All 256 possible rules fit in one byte; rule 110 is one of them, and it is provably Turing-complete.',
+      why: 'The background is a spacetime diagram scrolling upward: compute one row per frame, push it up. One-dimensional means absurdly cheap; deterministic means it never dies and never explodes — it just keeps generating. Watch rule 110 long enough and you see gliders colliding on a periodic ether: it is, quite literally, a machine.',
+      dies: 'Almost never. 90 grows a Sierpinski fractal from a single seed; 30 grows a chaotic triangle (which wraps, self-collides, and turns into full-width turbulence); 110 and 184 start from a random row. Linear rules can annihilate at certain widths, so one safety net remains: an all-dead row reseeds from noise.',
+      cost: 'One canvas, O(width) per frame. Practically free.',
+      interact: 'Click: inject a disturbance in that column and watch it propagate downstream.',
+    },
+  },
+  life: {
+    tag: '2-D · dies · needs feeding',
+    concept: {
+      rule: "B3/S23: a dead cell with exactly 3 live neighbours is born; a live cell with 2 or 3 survives; the rest die. Conway fixed these four lines in 1970 — then Guy found the glider, Gosper built the gun, and by 2006 the OTCA metapixel was running Life on Life.",
+      why: "A classic with one fatal flaw as a background: random soup settles into still lifes and oscillators within a few hundred generations. Two rescues here: every cell leaves a decaying trail (history stays visible), and every few seconds a glider flies in from an edge with a splash of soup. Day & Night is far more active if you'd rather not feed it.",
+      dies: 'Yes. A watchdog reseeds when activity drops below threshold or stalls for 60 generations; between rescues, the glider rain keeps it alive.',
+      cost: 'O(cells) per frame at 6px cells — roughly 40k cells on a typical screen. Canvas 2D is plenty.',
+      interact: 'Move the mouse: splash random soup at the cursor.',
+    },
+  },
+  cyclic: {
+    tag: '2-D · spirals forever · zero maintenance',
+    concept: {
+      rule: 'k colours arranged in a ring. A cell advances to the next colour when enough neighbours already hold it. That is the whole rule — no birth, no death. Range, threshold and colour count decide whether it grows spirals or turbulence.',
+      why: "From noise it passes through three phases: debris → droplets (locally synchronised patches swallowing each other) → spirals (topological defects that sustain their own wave sources). Once a spiral forms it turns forever — exactly what a background wants: motion without an ending. It is the leanest discrete excitable medium after Greenberg–Hastings, made famous when Dewdney covered Griffeath's experiments in Scientific American in 1989.",
+      dies: 'No. Spirals are topological defects; nothing short of outside interference removes them.',
+      cost: 'O(cells × neighbourhood) per frame at 4px cells. The R3 Moore neighbourhood is 48 cells and JavaScript still keeps up.',
+      interact: 'Move the mouse: scatter noise at the cursor — new spiral cores grow out of it.',
+    },
+  },
+  boids: {
+    tag: 'agents · three rules · the flock just appears',
+    concept: {
+      rule: "Every bird sees only the neighbours within a radius and does three things: don't collide (separation), match heading (alignment), drift toward the centre (cohesion). No leader, no global information.",
+      why: 'From grid to agents: the rules stay local, but the substrate becomes moving individuals. Flocks, schools and crowd evacuations all run on this. As a background it is the safest of the six — it neither converges nor explodes — just keep speed and density low so it does not steal attention.',
+      dies: 'No. But too many birds plus too much cohesion will clump into a blob.',
+      cost: 'O(n) with a spatial hash; 300 birds on Canvas 2D is light work.',
+      interact: 'The mouse is a predator (switchable to bait).',
+    },
+  },
+  lenia: {
+    tag: 'continuous · mortal · the most alive',
+    concept: {
+      rule: 'Game of Life made continuous: states are reals in 0–1, the neighbourhood is a radius-13 ring kernel, and growth is a bell curve — a cell grows only when its neighbourhood sum is just right. Orbium is the first creature ever found in this parameter family.',
+      why: 'The most alive-looking thing on this list: soft-bodied creatures glide across the grid carrying their own anatomy, orbiting and swallowing one another. The blur, the glow, the slowness a background wants — Lenia has them natively. The price is mortality: two creatures collide and dissolve into mist. Hence the watchdog: when total mass drops, a new creature is dropped into empty space; when a collision blows up into a labyrinth, the grid reseeds. Flow Lenia (2023) fixes this at the root with mass conservation.',
+      dies: 'Yes. Total mass is read back every 3 seconds: too low → replenish in an open spot; labyrinth explosion → full reseed.',
+      cost: '27×27 kernel and state reads — 729 texels each — per cell per step. GPU only. A 160-row grid is light on Apple silicon, heavier on integrated GPUs.',
+      interact: 'Click or drag: drop a new Orbium at the cursor, randomly oriented.',
+    },
+  },
+  nca: {
+    tag: 'learned rules · self-healing · the one only you can make',
+    concept: {
+      rule: "Still a CA: each cell sees only its 3×3 neighbourhood. But the update rule isn't hand-written — it's an 8k-parameter network trained with the loss “grow this image from one seed, and grow it back when damaged.”",
+      why: "Every other tab runs rules a human wrote; this one runs rules that were learned — and the training target is a steady state, so it doesn't die, doesn't explode, and repairs itself. Wipe a patch away with your mouse and watch it regrow. It is a toy version of the morphogenesis Levin talks about, on a 64×64 grid — and the one background nobody else can ship, because the weights are yours.",
+      dies: 'No. Stability is the training objective; any tile whose mass hits zero gets a fresh seed automatically.',
+      cost: '≈8k multiply-adds + 2k texel reads per cell per step — trivial for a GPU at 256×128. Weights come from nca/train.py (≈20 min on Apple silicon).',
+      interact: 'Sweep the mouse: erase a radius-6 hole and watch it heal.',
+    },
+  },
+};
