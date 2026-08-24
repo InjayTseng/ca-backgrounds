@@ -1,5 +1,7 @@
 # ca-backgrounds — 會動的背景標本室
 
+**Live: https://ca.davidyc.com** · Six cellular-automata-family web background animations in one tabbed page — Rule 110, Life, Cyclic CA, Boids, Lenia, and a self-healing Neural CA (WebGL2 inference of PyTorch-trained weights). Zero build, zero runtime dependencies, MIT.
+
 六種「細胞自動機家族」的網頁背景動畫，放在同一頁的六個分頁裡，每個分頁附一張理念卡：
 規則是什麼、為什麼適合當背景、會不會死、成本、對應 12 週學程的哪一週、滑鼠怎麼互動。
 
@@ -76,3 +78,7 @@ Lenia 單隻 Orbium 穩定滑 2500 步、NCA 長出 8 隻蜥蜴且擦掉後 300 
 
 這個 repo 是「細胞自動機 × 複雜系統 12 週學程」的交付物容器：每週的「會動的東西」就是一個分頁。
 W1 Rule 110、W2 Life、W7 Boids、W9–10 NCA、W11 Lenia；Cyclic CA 不在學程裡，純粹因為它太適合當背景。
+
+## License
+
+MIT。Orbium 初始圖樣出自 Bert Chan 的 Lenia（github.com/Chakazul/Lenia，MIT），來源標注在 `src/sims/orbium.js`。

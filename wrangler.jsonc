@@ -1,0 +1,9 @@
+// Deploys the static page as a Cloudflare Worker with assets, served at
+// https://ca.davidyc.com (the custom_domain route auto-provisions DNS).
+//   npm run deploy
+{
+  "name": "ca-backgrounds",
+  "compatibility_date": "2026-08-01",
+  "assets": { "directory": "./dist" },
+  "routes": [{ "pattern": "ca.davidyc.com", "custom_domain": true }]
+}
