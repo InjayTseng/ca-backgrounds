@@ -4,3 +4,4 @@ nca/*.log
 nca/*.tmp
 node_modules/
 dist/
+.wrangler/
