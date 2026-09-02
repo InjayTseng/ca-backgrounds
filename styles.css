@@ -132,6 +132,12 @@ body.card-collapsed .card-brief {
 .spec dt { color: var(--accent-text); font-size: var(--fs-sm); padding-top: 3px; }
 .spec dd { margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.55; font-weight: 300; }
 .spec dd::first-letter { font-weight: 500; }
+/* the snippet is the thing a visitor came to copy: mono, wraps, selects whole */
+.spec dd.embed { font-family: var(--mono); font-size: var(--fs-sm); line-height: 1.5; }
+.spec dd.embed::first-letter { font-weight: 400; }
+.spec dd.embed code { display: block; white-space: pre-wrap; word-break: break-all; user-select: all; color: var(--ink); }
+.spec dd.embed a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line); }
+.spec dd.embed a:hover, .spec dd.embed a:focus-visible { color: var(--ink); border-bottom-color: var(--accent); }
 .target { display: block; width: 96px; height: 96px; image-rendering: pixelated; margin: 12px 0 0; border: 1px solid var(--line); background: var(--bg2); }
 .opts { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .opt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

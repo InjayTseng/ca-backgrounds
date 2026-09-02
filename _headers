@@ -6,15 +6,25 @@
 # sims/boids.js importing it from a cached core/boids.js that has no such export,
 # and the tab would throw. So code revalidates every time — ETags make that a
 # 304 with no body — and only the large, interface-free payloads get a real TTL.
+#
+# Access-Control-Allow-Origin: other sites load element.js as a cross-origin ES
+# module, and the browser requires CORS on the script and on everything it imports
+# or fetches. Without these lines the element works on this domain only.
+
+/element.js
+  Cache-Control: public, max-age=0, must-revalidate
+  Access-Control-Allow-Origin: *
 
 /src/*
   Cache-Control: public, max-age=0, must-revalidate
+  Access-Control-Allow-Origin: *
 
 /styles.css
   Cache-Control: public, max-age=0, must-revalidate
 
 /nca/*
   Cache-Control: public, max-age=86400
+  Access-Control-Allow-Origin: *
 
 /og.png
   Cache-Control: public, max-age=86400

@@ -23,7 +23,7 @@ export function createRuntime(host, {
   observeViewport = false,       // pause when the host is scrolled out of view (the element wants this; the site cannot scroll)
   reduced = matchMedia('(prefers-reduced-motion: reduce)').matches,
   pointerFilter = () => false,   // (event) => true means "the pointer is over something else"; sims are told it left
-  onMount = () => {},            // (sim, error | null) after setSim() settles, unless a later setSim() superseded it
+  onMount = () => {},            // (sim, error | null) after setSim() settles, unless a later setSim() superseded it; error.cause is the thrown value
   onError = () => {},            // (sim, { code?, message? }) for failures after a successful mount
   onPause = () => {},            // (paused) whenever the derived pause state is recomputed
   onStats = () => {},            // (text) every 400ms while a sim is mounted
@@ -73,7 +73,7 @@ export function createRuntime(host, {
       canvas.addEventListener('webglcontextrestored', () => { if (s.canvas === canvas) remount(); });
       if (s.reduced) for (let i = 0; i < 120; i++) ctrl.frame(1); // settle into something worth looking at, then hold
     } catch (e) {
-      console.error(e); error = { code: e.code, message: e.message };
+      error = { code: e.code, message: e.message, cause: e }; // the consumer decides how loud to be
       canvas.style.display = 'none';
     }
     if (my !== s.mountSeq) return;

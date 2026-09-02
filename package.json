@@ -17,8 +17,8 @@
   "scripts": {
     "test": "node --test",
     "check": "node tools/browser-check.mjs",
-    "serve": "python3 -m http.server 8787",
-    "build": "rm -rf dist && mkdir -p dist/nca && cp index.html styles.css og.png _headers dist/ && cp -R src dist/src && cp -R fonts dist/fonts && cp nca/weights.json nca/target.png dist/nca/",
+    "serve": "node tools/serve.mjs 8788",
+    "build": "rm -rf dist && mkdir -p dist/nca && cp index.html embed.html element.js styles.css og.png _headers dist/ && cp -R src dist/src && cp -R fonts dist/fonts && cp nca/weights.json nca/target.png dist/nca/",
     "deploy": "npm run build && npx wrangler@4.128.0 deploy"
   },
   "license": "MIT",

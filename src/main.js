@@ -15,6 +15,15 @@ import nca from './sims/nca.js';
 const SIMS = [rule1d, life, cyclic, boids, lenia, nca];
 const DEFAULT_SIM = 'boids'; // the calmest of the six: what a first visit should open on
 const $ = (s, r = document) => r.querySelector(s);
+// Option values as shipped, before any chip is pressed: the embed snippet only spells
+// out what differs from these.
+const OPTION_DEFAULTS = Object.fromEntries(SIMS.map((s) => [s.id, Object.fromEntries(Object.entries(s.options ?? {}).map(([k, o]) => [k, String(o.value)]))]));
+
+// What a visitor copies: the current tab with the currently pressed chips baked in.
+function embedSnippet(sim) {
+  const diff = Object.entries(sim.options ?? {}).filter(([k, o]) => String(o.value) !== OPTION_DEFAULTS[sim.id][k]).map(([k, o]) => `${k}=${o.value}`);
+  return `<ca-background sim="${sim.id}"${diff.length ? ` options="${diff.join(',')}"` : ''}></ca-background>`;
+}
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -33,7 +42,7 @@ const ui = {
 const rt = createRuntime($('#stage'), {
   theme: THEMES[ui.theme],
   pointerFilter: (e) => e.target instanceof Element && !!e.target.closest('.ui'),
-  onMount: (sim, error) => renderCard(sim, error),
+  onMount: (sim, error) => { if (error) console.error(error.cause ?? error.message); renderCard(sim, error); },
   onError: (sim, error) => renderCard(sim, error),
   onPause: syncPauseButton,
   onStats: (text) => { const el = $('#stats'); if (el) el.textContent = text; },
@@ -81,7 +90,7 @@ function setLang(lang) {
   $('.brand-text .t2').textContent = t.t2;
   $('.brand-text .repo').textContent = t.repo;
   $('#tabs').setAttribute('aria-label', t.tablist);
-  $('.toolbar .keys').textContent = t.keys;
+  $('.toolbar .keys').textContent = t.keys.replace('{n}', SIMS.length);
   $('#speed-label').textContent = t.speed;
   $('#reseed').textContent = t.reseed;
   $('#hide').textContent = t.hide;
@@ -167,6 +176,7 @@ function renderCard(sim, err) {
       <dt>${t.dies}</dt><dd>${x.dies}</dd>
       <dt>${t.cost}</dt><dd>${x.cost}</dd>
       <dt>${t.interact}</dt><dd>${x.interact}</dd>
+      <dt>${t.embed}</dt><dd class="embed"><code></code><a href="embed.html">${t.embedHow}</a></dd>
     </dl>
     ${sim.id === 'nca' && !error ? `<img class="target" src="nca/target.png" alt="${t.target}" title="${t.target}">` : ''}
     <div class="opts">${opts}</div>
@@ -177,11 +187,13 @@ function renderCard(sim, err) {
   // most playable thing on the page and were unreachable on a phone without this.
   $('#card-brief').innerHTML = `<p class="tagline">${x.tag}</p><p class="brief-interact">${x.interact}</p>${errorSlot}<div class="opts">${opts}</div>`;
   if (error) document.querySelectorAll('.error').forEach((p) => { p.textContent = String(error).split('\n')[0]; });
+  $('#card .embed code').textContent = embedSnippet(sim); // textContent: it contains angle brackets
   document.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => {
     sim.options[b.dataset.key].value = b.dataset.val;
     rt.setOption(b.dataset.key, b.dataset.val);
-    // both copies of the chips (card and brief) show the same pressed state
+    // both copies of the chips (card and brief) show the same pressed state, and the snippet follows
     document.querySelectorAll(`.chip[data-key="${b.dataset.key}"]`).forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.val === b.dataset.val)));
+    $('#card .embed code').textContent = embedSnippet(sim);
   }));
 }
 
@@ -209,7 +221,8 @@ function bindUI() {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]')) return;
     const k = e.key.toLowerCase();
-    if (k >= '1' && k <= '6') location.hash = SIMS[+k - 1].id;
+    const n = +e.key;
+    if (n >= 1 && n <= SIMS.length && e.key.length === 1) location.hash = SIMS[n - 1].id;
     else if (k === 'h') toggleUI();
     else if (k === 'r') rt.reseed();
     else if (k === ' ') {

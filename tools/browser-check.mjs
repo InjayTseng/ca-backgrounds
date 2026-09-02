@@ -22,6 +22,7 @@
 //   --settle MS      how long a sim runs before it is inspected (default 1500)
 //   --chrome PATH    Chrome binary
 //   --warn           also fail on console.warn
+//   --flags "..."    extra Chrome flags, e.g. "--disable-3d-apis" to test the no-WebGL path
 
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile, mkdtemp, rm } from 'node:fs/promises';
@@ -41,7 +42,7 @@ const chrome = spawn(CHROME, [
   '--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
   '--no-first-run', '--no-default-browser-check', '--hide-scrollbars', '--mute-audio',
   '--use-angle=swiftshader', '--enable-unsafe-swiftshader', // WebGL2 without a GPU
-  `--window-size=${W},${H}`, 'about:blank',
+  `--window-size=${W},${H}`, ...(args.flags ? args.flags.split(' ').filter(Boolean) : []), 'about:blank',
 ], { stdio: 'ignore' });
 process.on('exit', () => { chrome.kill(); rm(profile, { recursive: true, force: true }).catch(() => {}); });
 
