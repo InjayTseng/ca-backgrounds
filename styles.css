@@ -58,7 +58,7 @@ body {
 }
 :where(button, a[href], input, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #stage { position: fixed; inset: 0; z-index: 0; }
-#stage canvas.stage { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 
 /* hiding the UI must also take it out of the tab order, not just fade it */
 .ui { position: fixed; z-index: 2; transition: opacity .35s ease, transform .35s ease, visibility 0s; }
