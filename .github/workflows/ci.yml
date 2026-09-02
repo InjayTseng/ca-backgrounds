@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm test
+
+  # "The code is on main" and "the code is live" must be the same state once other
+  # sites load element.js from this origin. Runs `npm run deploy` exactly as a
+  # human would, so the wrangler version is pinned in one place (package.json).
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - if: env.CLOUDFLARE_API_TOKEN == ''
+        run: |
+          echo "::warning::CLOUDFLARE_API_TOKEN is not set, so this push was not deployed."
+          echo "::warning::Create a token (Workers Scripts:Edit) and run: gh secret set CLOUDFLARE_API_TOKEN"
+      - if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npm run deploy
+      # Prove production now serves what was just built. A stale edge would fail here,
+      # not on a visitor's screen.
+      - if: env.CLOUDFLARE_API_TOKEN != ''
+        run: |
+          sleep 10
+          curl -sfS https://ca.davidyc.com/src/main.js | cmp - dist/src/main.js
+          echo "live main.js matches dist/"
