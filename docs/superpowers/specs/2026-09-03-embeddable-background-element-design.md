@@ -1,7 +1,9 @@
 # Embeddable background element — design
 
 - **Date:** 2026-09-03
-- **Status:** approved design, not yet implemented
+- **Status:** approved design, amended 2026-09-03 after a five-lens review (pointer
+  coordinates, `options`, post-mount failures, `/element.js` caching, per-instance
+  runtime state); implementation in progress
 - **Scope:** one deliverable — a `<ca-background>` custom element that puts any of
   the six sims behind someone else's page. Flow Lenia is a separate effort and is
   deliberately not specced here (see *Related work*).
@@ -36,9 +38,9 @@ Three pieces, in dependency order.
 
 ### `src/runtime.js` (new)
 
-Owns everything `main.js` currently does that is not UI: the 30fps rAF loop, canvas
-sizing, resize handling, pause policy, pointer forwarding, reduced-motion, and the
-mount/destroy lifecycle including the async `sim.load()` race guard.
+Owns everything `main.js` currently does that is not UI: the 30fps rAF loop, resize
+forwarding, pause policy, pointer forwarding, reduced-motion, and the mount/destroy
+lifecycle including the async `sim.load()` race guard.
 
 ```js
 createRuntime(host, { sim, theme, speed, interactive, onError }) -> {
@@ -50,6 +52,27 @@ createRuntime(host, { sim, theme, speed, interactive, onError }) -> {
 `host` is the element the canvas is appended to. The runtime never touches
 `document.documentElement`, `localStorage`, or the hash — those are the site's
 concerns and stomping them is exactly what would break an embedder's page.
+
+**Resize forwarding, not canvas sizing.** Each sim already sizes its own backing
+store inside `resize()` — the cell size, the DPR cap and the grid maths are sim
+decisions. The runtime only debounces `window` resize and calls `ctrl.resize()`,
+exactly as `main.js` does today. The six copies of the DPR idiom are lifted into a
+shared `fitCanvas()` helper in a separate, earlier commit so the extraction itself
+stays mechanical.
+
+**Per-instance state.** `main.js` keeps its state in module-level singletons
+(`state`, `mountSeq`, `resizeT`), adds its `window`/`document` listeners once with no
+disposers, never cancels `state.raf`, and keys the `webglcontextlost` guard on the
+global `state.canvas`. Moved verbatim, that yields a runtime that can exist once per
+page and can never be torn down — the opposite of what a custom element needs. So
+the move closes every piece of state over `createRuntime()`, collects every
+`addEventListener` into a list that `destroy()` drains, and cancels the rAF while
+paused. Same lines of logic, different scope; the browser matrix is what proves the
+behaviour did not change.
+
+**Speed is clamped** to the largest step budget any sim has (`4`): the sims cap steps
+per frame but let `acc` grow without bound, so an embedder passing `speed="8"` would
+build a backlog that replays for seconds after the attribute changes back.
 
 ### `src/element.js` (new)
 
@@ -72,8 +95,9 @@ hash routing, tabs, concept card, toolbar, keyboard, theme and language
 persistence, the `window.__ca` debug hook, and the reduced-motion settle.
 
 This is a **mechanical move, not a rewrite.** Code comes out of `main.js` and into
-`runtime.js` with its comments intact; behaviour changes are limited to the two
-noted under *Pause policy*.
+`runtime.js` with its comments intact. Behaviour changes ship in their own commit
+after the move has been verified: the context-loss remount under *Failure policy*,
+the idle-time weights prefetch, and the rAF being cancelled while paused.
 
 ## Public API
 
@@ -89,11 +113,18 @@ noted under *Pause policy*.
 | `speed` | number | `1` | multiplier passed to `frame()` |
 | `paused` | boolean attribute | absent | present stops the loop |
 | `interactive` | `true` `false` | `true` | `false` ignores the pointer entirely |
+| `options` | `key=value,key=value` | sim defaults | the same choices the site's chips offer, e.g. `rule=90`, `preset=turbulent`, `mood=attract`, `density=many`, `brush=off` |
 | `fallback` | a sim id | `boids` | used when `sim` cannot run here |
 
 Properties mirror the attributes. One method: `reseed()`. All attributes are live —
 changing `sim` tears down the old controller and mounts the new one through the
 same path `mount()` uses today.
+
+`options` exists because the chips are what the site's visitors spend their time on:
+Rule 90's fractal, Day & Night, a tank full of Orbiums. Without it, what a visitor
+sees on the site is not what they can copy. Unknown keys and values are ignored with
+a `console.warn`. The site's concept card shows the exact `<ca-background>` snippet
+for the current tab with the currently pressed chips baked in.
 
 Sizing is the host page's job. The element is `display: block` and fills its box;
 the canvas fills the element. The documented recipe for a page background:
@@ -115,6 +146,15 @@ the cursor, and the reader can still click the article underneath.
 `interactive="false"` removes the listener entirely for hosts that want a purely
 decorative surface.
 
+**Coordinates.** The sims' `pointer({ x, y })` contract is *canvas-local CSS pixels*:
+every sim divides by `canvas.clientWidth`/`clientHeight` or compares against its own
+`w`/`h`. `main.js` forwards `clientX`/`clientY` untouched, which is only correct
+because the site's canvas is `position: fixed; inset: 0`. An element sitting anywhere
+else on the page would aim every brush at the wrong place. The runtime therefore
+translates through `host.getBoundingClientRect()` before forwarding, and sends
+`leave: true` whenever the pointer is outside the box. README documents the contract
+so a seventh sim does not reintroduce the assumption.
+
 ### Pause policy
 
 The site pauses on `document.hidden`. The element pauses on that **and** on an
@@ -122,9 +162,15 @@ The site pauses on `document.hidden`. The element pauses on that **and** on an
 sitting in a long page would otherwise burn a phone battery to animate pixels
 nobody is looking at.
 
-The site adopts the same observer as part of this work, because the reasoning
-applies equally to a tab that has been scrolled past. This is the one deliberate
-behaviour change to the existing page.
+The observer is an element concern only. The site's stage is `position: fixed` under
+a `body { overflow: hidden }`, so it can never be scrolled out of view and the observer
+would never fire there; the site keeps `document.hidden` alone. The runtime exposes
+the observer as an option the element turns on and `main.js` leaves off.
+
+While paused — by the visitor, by an error, by a hidden tab or an off-screen
+element — the runtime cancels its rAF rather than waking every frame to do nothing.
+Today `main.js` keeps the loop alive and rewrites the stats line every 400 ms of a
+still image.
 
 ## Failure policy
 
@@ -138,6 +184,18 @@ The sims already carry error codes (`noWebGL2`, `noFloat`, `noWeights`) from the
 translated-message work; the element reads the same codes and reports them in
 English to the console, since it has no i18n.
 
+Two failures happen *after* a successful mount and need their own rule:
+
+- **`webglcontextlost`** (iOS backgrounding, a GPU reset). The runtime error-pauses
+  and reports `lostContext`. On `webglcontextrestored`, or when the visitor presses
+  play, it remounts the same sim rather than resuming: GL calls on a dead context do
+  not throw, so resuming would show a blank stage under a UI that says "playing".
+  Today `main.js` has exactly that bug — the pause button clears `errorPaused`.
+- **A throwing `frame()`.** The runtime error-pauses and reports the message. The
+  element treats this like a mount failure: warn, then mount `fallback`.
+
+Both are runtime behaviour, so the site gets them too.
+
 ## Deployment requirements
 
 Cross-origin ES modules require CORS headers on the script **and** on everything it
@@ -146,6 +204,7 @@ is the entire point of it. `_headers` gains:
 
 ```
 /element.js
+  Cache-Control: public, max-age=0, must-revalidate
   Access-Control-Allow-Origin: *
 /src/*
   Access-Control-Allow-Origin: *
@@ -153,16 +212,23 @@ is the entire point of it. `_headers` gains:
   Access-Control-Allow-Origin: *
 ```
 
-The existing `Cache-Control` rules stay as they are: code revalidates every request,
-the weights and images keep their day.
+The CORS lines are merged into the existing `/src/*` and `/nca/*` blocks rather than
+duplicated. `/element.js` needs its own `Cache-Control`: it is not under `/src/`, so
+without one it would be heuristically cached by browsers while the modules it imports
+revalidate every request — exactly the version-skew `_headers` was written to
+prevent. The weights and images keep their day.
 
 `npm run build` copies `element.js` and a new `embed.html` demo page into `dist/`.
 
 ## Verification
 
-- `npm test` — the 19 core suites must stay green. They cover the pure step
-  functions, which this work does not touch; a red suite means the refactor reached
-  somewhere it should not have.
+- `npm test` — the core tests must stay green. They cover the pure step functions,
+  which this work does not touch; a red test means the refactor reached somewhere it
+  should not have.
+- `npm run check` — `tools/browser-check.mjs` drives headless Chrome over the DevTools
+  protocol, mounts all six sims and fails on any exception, `console.error` or 404.
+  Run it per theme, language, reduced-motion and a phone viewport; that is the
+  browser matrix below, automated.
 - **Browser matrix on the existing site**, the same one used for the predator work:
   all six tabs mount without console errors, in both themes and both languages, plus
   hide-UI restore, tab keyboard navigation, and the pause state machine. `main.js`
@@ -198,7 +264,8 @@ creatures freely, so the answer decides whether Flow Lenia becomes a second opti
 inside tab 05 or an independent tab 07 with a creature of its own. Throwaway code,
 half a day, no changes under `src/`.
 
-**CI auto-deploy** is a prerequisite worth doing first. Production served stale code
-after the predator release because deployment is manual and was simply forgotten.
-Once other people's sites load `element.js` from this origin, "the code is on main"
-and "the code is live" must stop being different states.
+**CI auto-deploy** was the prerequisite and is done (`.github/workflows/ci.yml`):
+production served stale code after the predator release because deployment was
+manual and was simply forgotten. Once other people's sites load `element.js` from
+this origin, "the code is on main" and "the code is live" must stop being different
+states. The deploy job also proves the live `main.js` equals what it just built.
