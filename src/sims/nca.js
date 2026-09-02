@@ -1,4 +1,5 @@
 import { getGL, program, drawQuad, texture, upload, framebuffer, bind, rgb } from '../gl.js';
+import { fitCanvas } from '../canvas.js';
 
 // Inference shader for the Growing NCA trained by nca/train.py. Layout contract lives there.
 const COMMON = `#version 300 es
@@ -131,16 +132,15 @@ export default {
     let steps = 0, acc = 0, frames = 0, damage = [0, 0, 0], erase = true, seedQueue = [];
 
     function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(canvas.clientWidth * dpr); canvas.height = Math.floor(canvas.clientHeight * dpr);
-      rows = 2; cols = Math.max(1, Math.ceil((canvas.clientWidth / Math.max(1, canvas.clientHeight)) * rows));
+      const { w, h } = fitCanvas(canvas, { maxDpr: 1 }); // 128-row tiles drawn NEAREST: device pixels buy nothing
+      rows = 2; cols = Math.max(1, Math.ceil((w / h) * rows));
       W = cols * TILE; H = rows * TILE;
       sets.flat().forEach((t) => gl.deleteTexture(t.tex)); fbs.forEach((f) => gl.deleteFramebuffer(f));
       sets = [0, 1, 2].map(() => [0, 1, 2, 3].map(() => texture(gl, W, H, 'rgba16f')));
       fbs = sets.map((s) => framebuffer(gl, s));
       reseed();
     }
-    const cropX = () => Math.min(1, (canvas.clientWidth / canvas.clientHeight) / (W / H));
+    const cropX = () => Math.min(1, (Math.max(1, canvas.clientWidth) / Math.max(1, canvas.clientHeight)) / (W / H));
     function seedTile(i) {
       const tx = i % cols, ty = (i / cols) | 0;
       const x = tx * TILE + (TILE >> 1) + ((Math.random() * 12 - 6) | 0), y = ty * TILE + (TILE >> 1) + ((Math.random() * 12 - 6) | 0);
@@ -201,6 +201,7 @@ export default {
       if (seedQueue.length) seedTile(seedQueue.shift());
       let n = 0;
       while (acc >= 1 && n < 4) { acc -= 1; n++; step(); }
+      acc = Math.min(acc, 1); // a speed above the step budget saturates instead of banking a backlog
       if (frames % 150 === 0 && !seedQueue.length) {
         const m = tileMasses();
         if (m) m.forEach((v, i) => { if (v < 0.5) seedQueue.push(i); });

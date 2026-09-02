@@ -1,5 +1,6 @@
 import { stepBoids, stepPredators, DEFAULTS } from '../core/boids.js';
 import { rgba } from '../theme.js';
+import { fitCanvas } from '../canvas.js';
 
 const NPRED = 2;
 
@@ -22,9 +23,7 @@ export default {
     const ctx = canvas.getContext('2d');
     let w = 0, h = 0, n = 0, b, pred, theme = env.theme, mouse = null, attract = false, dpr = 1, acc = 0;
     function resize() {
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(canvas.clientWidth * dpr); canvas.height = Math.floor(canvas.clientHeight * dpr);
-      w = canvas.clientWidth; h = canvas.clientHeight;
+      ({ w, h, dpr } = fitCanvas(canvas));
       reseed();
     }
     function reseed() {
@@ -53,6 +52,7 @@ export default {
         stepPredators(pred, NPRED, b, n, w, h, DEFAULTS, pointer()); // hunt first, so the flock reacts to where they are now
         stepBoids(b, n, w, h, DEFAULTS, threats());
       }
+      acc = Math.min(acc, 1); // a speed above the step budget saturates instead of banking a backlog
       if (!steps) return;
       // motion-blur fade
       ctx.fillStyle = rgba(theme.bg, 0.16);

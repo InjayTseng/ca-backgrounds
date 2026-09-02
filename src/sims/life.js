@@ -1,5 +1,6 @@
 import { stepLife, stamp, GLIDER, RULES } from '../core/life.js';
 import { hexToRgb, packRGB, mix } from '../theme.js';
+import { fitCanvas } from '../canvas.js';
 
 export default {
   id: 'life',
@@ -31,8 +32,7 @@ export default {
       }
     }
     function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(canvas.clientWidth * dpr); canvas.height = Math.floor(canvas.clientHeight * dpr);
+      const { dpr } = fitCanvas(canvas);
       const cell = 6 * dpr;
       w = Math.ceil(canvas.width / cell); h = Math.ceil(canvas.height / cell);
       off.width = w; off.height = h; img = octx.createImageData(w, h); px = new Uint32Array(img.data.buffer);
@@ -73,6 +73,7 @@ export default {
         still = r.changed < w * h * 0.001 ? still + 1 : 0;
         if (still > 60 || pop < w * h * 0.005) reseed();
       }
+      acc = Math.min(acc, 1); // a speed above the step budget saturates instead of banking a backlog
       if (feedT > 90) { feedT = 0; if (ruleKey === 'life' || ruleKey === 'highlife') feed(); }
       render();
     }

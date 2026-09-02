@@ -1,5 +1,6 @@
 import { stepRow, seedRow } from '../core/rule1d.js';
 import { hexToRgb, packRGB, mix, rgba } from '../theme.js';
+import { fitCanvas } from '../canvas.js';
 
 const INIT = { 30: 'seed', 90: 'seed', 110: 'random', 184: 'random', 54: 'random', 73: 'random' };
 
@@ -33,9 +34,7 @@ export default {
       inkA = hexToRgb(t.accent); inkB = hexToRgb(t.ink);
     }
     function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(canvas.clientWidth * dpr);
-      canvas.height = Math.floor(canvas.clientHeight * dpr);
+      const { dpr } = fitCanvas(canvas);
       cs = Math.max(2, Math.round(3 * dpr));
       cols = Math.ceil(canvas.width / cs) | 1; rows = Math.ceil(canvas.height / cs); // odd ring: rule 90 on 2^k cells dies in k steps
       stripe = ctx.createImageData(cols * cs, cs); stripe32 = new Uint32Array(stripe.data.buffer);
@@ -68,6 +67,7 @@ export default {
         if (gen % 64 === 0 && !row.some((v) => v)) { row = seedRow(cols, 'random'); } // linear rules can annihilate; restart from noise
         drawStripe();
       }
+      acc = Math.min(acc, 1); // a speed above the step budget saturates instead of banking a backlog
       if (n) { // slow fade of history so the eye is drawn to the fresh edge
         ctx.fillStyle = rgba(theme.bg, 0.005);
         ctx.fillRect(0, 0, canvas.width, canvas.height - cs);

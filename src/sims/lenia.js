@@ -1,5 +1,6 @@
 import { getGL, program, drawQuad, texture, upload, framebuffer, bind, rgb } from '../gl.js';
 import { ORBIUM } from './orbium.js';
+import { fitCanvas } from '../canvas.js';
 
 const R = ORBIUM.R; // 13
 const ORB_MASS = ORBIUM.cells.flat().reduce((a, b) => a + b, 0);
@@ -79,9 +80,8 @@ export default {
     const palette = () => [rgb(theme.bg), rgb(theme.cool), rgb(theme.hi)];
 
     function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(canvas.clientWidth * dpr); canvas.height = Math.floor(canvas.clientHeight * dpr);
-      H = 160; W = Math.max(64, Math.round(H * canvas.clientWidth / Math.max(1, canvas.clientHeight)));
+      const { w, h } = fitCanvas(canvas, { maxDpr: 1 }); // 160 rows upscaled: device pixels buy nothing
+      H = 160; W = Math.max(64, Math.round(H * w / h));
       state.forEach((t) => gl.deleteTexture(t.tex)); fbs.forEach((f) => gl.deleteFramebuffer(f));
       state = [0, 1].map(() => texture(gl, W, H, fmt, null, gl.LINEAR));
       fbs = state.map((t) => framebuffer(gl, [t]));
@@ -159,6 +159,7 @@ export default {
       acc += mul; frames++;
       let n = 0;
       while (acc >= 1 && n < 6) { acc -= 1; n++; step(); }
+      acc = Math.min(acc, 1); // a speed above the step budget saturates instead of banking a backlog
       if (frames % 90 === 0) watchdog();
       render();
     }

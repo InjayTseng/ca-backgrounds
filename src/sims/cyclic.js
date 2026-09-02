@@ -1,5 +1,6 @@
 import { stepCyclic, PRESETS } from '../core/cyclic.js';
 import { hexToRgb, packRGB, mix } from '../theme.js';
+import { fitCanvas } from '../canvas.js';
 
 export default {
   id: 'cyclic',
@@ -32,8 +33,7 @@ export default {
       }
     }
     function resize() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.floor(canvas.clientWidth * dpr); canvas.height = Math.floor(canvas.clientHeight * dpr);
+      const { dpr } = fitCanvas(canvas);
       const cell = 4 * dpr;
       w = Math.ceil(canvas.width / cell); h = Math.ceil(canvas.height / cell);
       off.width = w; off.height = h; img = octx.createImageData(w, h); px = new Uint32Array(img.data.buffer);
@@ -57,6 +57,7 @@ export default {
       acc += mul * 0.6;
       let n = 0;
       while (acc >= 1 && n < 4) { acc -= 1; n++; stepCyclic(a, b, w, h, k, preset.threshold, preset.off); [a, b] = [b, a]; gen++; }
+      acc = Math.min(acc, 1); // a speed above the step budget saturates instead of banking a backlog
       render();
     }
     buildLut(); resize();

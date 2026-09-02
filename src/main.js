@@ -212,14 +212,18 @@ function loop(t) {
   state.last = t;
   state.fpsAcc += dt; state.fpsN++;
   if (state.fpsAcc > 500) { state.fps = Math.round(1000 * state.fpsN / state.fpsAcc); state.fpsAcc = 0; state.fpsN = 0; }
-  if (state.ctrl && !state.paused && !(state.reduced && !state.forceMotion)) {
-    try { state.ctrl.frame(state.speed); }
-    catch (e) { console.error(e); setPaused({ error: true }); renderCard(state.sim, { message: e.message }); }
-  }
+  if (state.ctrl && !state.paused && !(state.reduced && !state.forceMotion)) guarded(() => state.ctrl.frame(state.speed));
   if (t - state.lastStats > 400 && state.ctrl) {
     state.lastStats = t;
     const el = $('#stats'); if (el) el.textContent = `${state.fps} fps · ${state.ctrl.stats()}${state.paused ? ' · paused' : ''}`;
   }
+}
+
+// A sim that throws mid-life (frame or resize) is error-paused and its message shown,
+// rather than left half-updated and throwing again next frame.
+function guarded(fn) {
+  try { fn(); }
+  catch (e) { console.error(e); setPaused({ error: true }); renderCard(state.sim, { message: e.message }); }
 }
 
 // One writer for `paused`, derived from the three things that can pause the loop.
@@ -243,7 +247,7 @@ function bindUI() {
   $('#card-toggle').addEventListener('click', () => { document.body.classList.toggle('card-collapsed'); syncCardToggle(); });
   window.addEventListener('hashchange', () => mount(location.hash.slice(1)));
   let resizeT = 0;
-  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => state.ctrl?.resize(), 150); });
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => state.ctrl && guarded(() => state.ctrl.resize()), 150); });
   document.addEventListener('visibilitychange', () => setPaused());
   if (MOBILE.matches) document.body.classList.add('card-collapsed');
   window.addEventListener('keydown', (e) => {
