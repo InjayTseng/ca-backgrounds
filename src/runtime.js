@@ -29,7 +29,7 @@ export function createRuntime(host, {
   onStats = () => {},            // (text) every 400ms while a sim is mounted
 } = {}) {
   const s = {
-    sim: null, ctrl: null, canvas: null, theme, speed: clampSpeed(speed), lastError: null,
+    sim: null, ctrl: null, canvas: null, options: undefined, theme, speed: clampSpeed(speed), lastError: null,
     paused: false, userPaused: false, errorPaused: false, offscreen: false, forceMotion: false, reduced,
     raf: 0, last: 0, fpsAcc: 0, fpsN: 0, fps: 0, lastStats: 0, mountSeq: 0, resizeT: 0,
   };
@@ -50,7 +50,7 @@ export function createRuntime(host, {
     const my = ++s.mountSeq;
     if (s.ctrl) { s.ctrl.destroy(); s.ctrl = null; }
     s.canvas?.remove();
-    s.sim = sim; s.lastError = null;
+    s.sim = sim; s.options = options; s.lastError = null;
     setPaused({ error: false }); // a previous sim's crash must not freeze this one
     const canvas = document.createElement('canvas');
     host.appendChild(canvas);
@@ -62,11 +62,15 @@ export function createRuntime(host, {
       const ctrl = sim.create(canvas, { theme: s.theme }, extra);
       s.ctrl = ctrl;
       Object.entries(sim.options ?? {}).forEach(([k, o]) => ctrl.setOption(k, options?.[k] ?? o.value)); // chips persist across tab switches
+      // A real loss (iOS backgrounding, a GPU reset) pauses with a message. GL calls
+      // on a dead context do not throw, so "resume" would show a blank stage under a
+      // UI that says playing: the way back is a remount, on restore or on play.
       canvas.addEventListener('webglcontextlost', (e) => {
         e.preventDefault();
         if (s.canvas !== canvas) return; // our own destroy() -> loseContext() on a tab switch, not a real loss
         s.lastError = { code: 'lostContext' }; setPaused({ error: true }); onError(sim, s.lastError);
       });
+      canvas.addEventListener('webglcontextrestored', () => { if (s.canvas === canvas) remount(); });
       if (s.reduced) for (let i = 0; i < 120; i++) ctrl.frame(1); // settle into something worth looking at, then hold
     } catch (e) {
       console.error(e); error = { code: e.code, message: e.message };
@@ -75,20 +79,36 @@ export function createRuntime(host, {
     if (my !== s.mountSeq) return;
     s.lastError = error;
     onMount(sim, error);
+    pushStats();
   }
 
+  const remount = () => s.sim && setSim(s.sim, { options: s.options });
+
+  // The loop only runs while something would change on screen. Paused, hidden,
+  // off-screen or holding still for reduced motion, there is no rAF at all.
+  const shouldRun = () => !s.paused && !(s.reduced && !s.forceMotion);
+  function schedule() {
+    if (s.raf || !shouldRun()) return;
+    s.last = performance.now(); s.fpsAcc = 0; s.fpsN = 0; // a fresh measurement window, not the gap we slept through
+    s.raf = requestAnimationFrame(loop);
+  }
+  function halt() { cancelAnimationFrame(s.raf); s.raf = 0; }
   function loop(t) {
+    s.raf = 0;
+    if (!shouldRun()) return;
     s.raf = requestAnimationFrame(loop);
     const dt = t - s.last;
     if (dt < 1000 / FPS - 1) return;
     s.last = t;
     s.fpsAcc += dt; s.fpsN++;
     if (s.fpsAcc > 500) { s.fps = Math.round(1000 * s.fpsN / s.fpsAcc); s.fpsAcc = 0; s.fpsN = 0; }
-    if (s.ctrl && !s.paused && !(s.reduced && !s.forceMotion)) guarded(() => s.ctrl.frame(s.speed));
-    if (t - s.lastStats > 400 && s.ctrl) {
-      s.lastStats = t;
-      onStats(`${s.fps} fps · ${s.ctrl.stats()}${s.paused ? ' · paused' : ''}`);
-    }
+    if (s.ctrl) guarded(() => s.ctrl.frame(s.speed));
+    if (t - s.lastStats > 400) pushStats(t);
+  }
+  function pushStats(t = performance.now()) {
+    if (!s.ctrl) return;
+    s.lastStats = t;
+    onStats(`${shouldRun() ? `${s.fps} fps · ` : ''}${s.ctrl.stats()}${s.paused ? ' · paused' : ''}`);
   }
 
   // One writer for `paused`, derived from the four things that can pause the loop.
@@ -96,6 +116,7 @@ export function createRuntime(host, {
     if (user !== undefined) s.userPaused = user;
     if (error !== undefined) s.errorPaused = error;
     s.paused = s.userPaused || s.errorPaused || document.hidden || s.offscreen;
+    if (shouldRun()) schedule(); else { halt(); pushStats(); }
     onPause(s.paused);
   }
 
@@ -124,22 +145,23 @@ export function createRuntime(host, {
     on(document.documentElement, 'pointerleave', () => s.ctrl?.pointer({ x: -1, y: -1, down: false, leave: true }));
   }
   setPaused();
-  s.raf = requestAnimationFrame(loop);
 
   return {
     setSim,
     setTheme(t) { s.theme = t; s.ctrl?.setTheme(t); },
     setOption(k, v) { s.ctrl?.setOption(k, v); },
     setSpeed(n) { s.speed = clampSpeed(n); },
-    setForceMotion(b) { s.forceMotion = !!b; },
-    reseed() { s.ctrl?.reseed(); },
+    setForceMotion(b) { s.forceMotion = !!b; if (shouldRun()) schedule(); else halt(); },
+    reseed() { s.ctrl?.reseed(); if (!shouldRun()) s.ctrl?.frame(0); },
     pause() { setPaused({ user: true }); },
-    resume() { setPaused({ user: false, error: false }); },
+    // play after a context loss rebuilds the sim; play after anything else just continues
+    resume() { if (s.lastError?.code === 'lostContext') remount(); else setPaused({ user: false, error: false }); },
     frame(mul = 1) { s.ctrl?.frame(mul); }, // debug: drive by hand when rAF is throttled (e.g. hidden tab)
     stats() { return s.ctrl ? s.ctrl.stats() : ''; },
     get sim() { return s.sim; },
     get ctrl() { return s.ctrl; },
     get canvas() { return s.canvas; },
+    get running() { return !!s.raf; },
     get paused() { return s.paused; },
     get userPaused() { return s.userPaused; },
     get lastError() { return s.lastError; },

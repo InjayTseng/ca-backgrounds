@@ -236,4 +236,7 @@ buildTabs();
 bindUI();
 setLang(ui.lang);
 mount(location.hash.slice(1) || DEFAULT_SIM);
+// The weights are the only thing on the page that makes a tab wait on the network.
+// Fetch them once the first tab is up and the browser is idle, so 06 opens like the rest.
+(window.requestIdleCallback ?? ((fn) => setTimeout(fn, 2000)))(() => { nca.load?.().catch(() => {}); });
 window.__ca = rt; // debug hook: __ca.frame(1) drives a frame by hand when rAF is throttled (e.g. hidden tab)
