@@ -17,9 +17,13 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked (iframe, private mode) */ } },
 };
 const MOBILE = matchMedia('(max-width: 760px)');
+const storedLang = store.get('ca.lang');
 const state = {
-  sim: null, ctrl: null, canvas: null, theme: (store.get('ca.theme') in THEMES) ? store.get('ca.theme') : 'dark',
-  lang: store.get('ca.lang') === 'zh' ? 'zh' : 'en', lastError: null,
+  // Object.hasOwn, not `in`: a stored 'constructor' would otherwise pass and THEMES[name] be a function
+  sim: null, ctrl: null, canvas: null, theme: Object.hasOwn(THEMES, store.get('ca.theme')) ? store.get('ca.theme') : 'dark',
+  // first visit follows the browser; after that, the visitor's own choice
+  lang: storedLang === 'zh' || storedLang === 'en' ? storedLang : (navigator.language?.toLowerCase().startsWith('zh') ? 'zh' : 'en'),
+  lastError: null,
   speed: 1, paused: false, userPaused: false, errorPaused: false, forceMotion: false,
   raf: 0, last: 0, fpsAcc: 0, fpsN: 0, fps: 0, lastStats: 0,
   reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -31,10 +35,14 @@ function setTheme(name) {
   applyCssTheme(THEMES[name]);
   store.set('ca.theme', name);
   state.ctrl?.setTheme(THEMES[name]);
-  $('#theme').textContent = name === 'dark' ? '☾ dark' : '☀ light';
+  $('#theme').textContent = T()[name];
 }
 
 const T = () => STR[state.lang];
+
+function setTitle() {
+  document.title = state.sim ? `${state.sim.num} ${state.sim.title} — ${T().siteTitle}` : T().siteTitle;
+}
 
 // English overlays the Chinese originals field by field, so a partial entry in
 // EN_SIMS falls back per string instead of dropping the whole object.
@@ -58,26 +66,36 @@ function setLang(lang) {
   state.lang = lang;
   store.set('ca.lang', lang);
   document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
-  $('.brand-text .t1').textContent = T().t1;
-  $('.brand-text .t2').textContent = T().t2;
-  $('.toolbar .keys').textContent = T().keys;
-  $('#reseed').textContent = T().reseed;
-  $('#hide').textContent = T().hide;
-  $('#lang').textContent = T().langBtn;
-  $('#motion').textContent = T().motion;
-  $('#pause').setAttribute('aria-label', T().pause);
-  $('.ui-hint').textContent = T().showUI;
+  const t = T();
+  $('.brand-text .t1').textContent = t.t1;
+  $('.brand-text .t2').textContent = t.t2;
+  $('.brand-text .repo').textContent = t.repo;
+  $('#tabs').setAttribute('aria-label', t.tablist);
+  $('.toolbar .keys').textContent = t.keys;
+  $('#speed-label').textContent = t.speed;
+  $('#reseed').textContent = t.reseed;
+  $('#hide').textContent = t.hide;
+  $('#theme').textContent = t[state.theme];
+  $('#motion').textContent = t.motion;
+  $('#pause').setAttribute('aria-label', t.pause);
+  $('.ui-hint').textContent = t.showUI;
+  // the button shows the *other* language's name, in that language
+  const lb = $('#lang');
+  lb.textContent = t.langBtn; lb.setAttribute('aria-label', t.langBtnLabel); lb.lang = lang === 'zh' ? 'en' : 'zh-Hant';
+  SIMS.forEach((s) => { $(`#tab-${s.id}`).title = simText(s).tag; }); // the tag is the scent a newcomer needs; the engine is a spec
+  setTitle();
   syncCardToggle();
   if (state.sim) renderCard(state.sim, state.lastError);
 }
 
 function buildTabs() {
   const nav = $('#tabs');
+  // titles and engines are English in both languages, so say so for screen readers under zh-Hant
   nav.innerHTML = SIMS.map((s) => `
     <button class="tab" id="tab-${s.id}" data-id="${s.id}" role="tab" aria-controls="card" aria-selected="false" tabindex="-1">
       <span class="num">${s.num}</span>
-      <span class="name">${s.title}</span>
-      <span class="engine">${s.engine}</span>
+      <span class="name" lang="en">${s.title}</span>
+      <span class="engine" lang="en">${s.engine}</span>
     </button>`).join('');
   nav.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => (location.hash = b.dataset.id)));
   nav.addEventListener('keydown', (e) => {
@@ -117,14 +135,17 @@ function renderCard(sim, err) {
     <div class="opt"><span class="lbl">${x.optLabel(key)}</span>
       ${o.values.map((v) => `<button class="chip" data-key="${key}" data-val="${v}" aria-pressed="${String(v) === String(o.value)}">${x.optValue(key, v)}</button>`).join('')}
     </div>`).join('');
+  // The error slot is filled with textContent below: a shader log or a driver
+  // message must not be parsed as HTML, and role=alert announces it.
+  const errorSlot = error ? '<p class="error" role="alert"></p>' : '';
   $('#card').innerHTML = `
-    <div class="card-head">
+    <div class="card-head" lang="en">
       <span class="num">${sim.num}</span>
       <h1>${sim.title}</h1>
       <span class="engine">${sim.engine}</span>
     </div>
     <p class="tagline">${x.tag}</p>
-    ${error ? `<p class="error">${error}</p>` : ''}
+    ${errorSlot}
     <dl class="spec">
       <dt>${t.rule}</dt><dd>${x.rule}</dd>
       <dt>${t.why}</dt><dd>${x.why}</dd>
@@ -132,16 +153,20 @@ function renderCard(sim, err) {
       <dt>${t.cost}</dt><dd>${x.cost}</dd>
       <dt>${t.interact}</dt><dd>${x.interact}</dd>
     </dl>
-    ${sim.id === 'nca' && !error ? `<img class="target" src="nca/target.png" alt="training target" title="${t.target}">` : ''}
+    ${sim.id === 'nca' && !error ? `<img class="target" src="nca/target.png" alt="${t.target}" title="${t.target}">` : ''}
     <div class="opts">${opts}</div>
-    <ul class="refs">${x.refs.map((r) => `<li>${r}</li>`).join('')}</ul>
+    <ul class="refs" lang="en">${x.refs.map((r) => `<li>${r}</li>`).join('')}</ul>
     <div class="stats" id="stats"></div>`;
-  // collapsed (the mobile default) still has to say the background is interactive
-  $('#card-brief').innerHTML = `<p class="tagline">${x.tag}</p><p class="brief-interact">${x.interact}</p>`;
-  $('#card').querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => {
+  // Collapsed (the mobile default) still has to say the background is interactive,
+  // still has to show why a tab is blank, and still offers the chips: they are the
+  // most playable thing on the page and were unreachable on a phone without this.
+  $('#card-brief').innerHTML = `<p class="tagline">${x.tag}</p><p class="brief-interact">${x.interact}</p>${errorSlot}<div class="opts">${opts}</div>`;
+  if (error) document.querySelectorAll('.error').forEach((p) => { p.textContent = String(error).split('\n')[0]; });
+  document.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => {
     sim.options[b.dataset.key].value = b.dataset.val;
     state.ctrl?.setOption(b.dataset.key, b.dataset.val);
-    b.parentElement.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(c === b)));
+    // both copies of the chips (card and brief) show the same pressed state
+    document.querySelectorAll(`.chip[data-key="${b.dataset.key}"]`).forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.val === b.dataset.val)));
   }));
 }
 
@@ -159,7 +184,7 @@ async function mount(id) {
   $('#stage').appendChild(canvas);
   $('#card').setAttribute('aria-labelledby', `tab-${sim.id}`);
   state.canvas = canvas;
-  document.title = `${sim.num} ${sim.title} — Living Backgrounds`;
+  setTitle();
   let error = null;
   try {
     const extra = sim.load ? await sim.load() : undefined;
@@ -228,7 +253,12 @@ function bindUI() {
     if (k >= '1' && k <= '6') location.hash = SIMS[+k - 1].id;
     else if (k === 'h') toggleUI();
     else if (k === 'r') state.ctrl?.reseed();
-    else if (k === ' ') { e.preventDefault(); $('#pause').click(); }
+    else if (k === ' ') {
+      // Space on a focused button or link is that control's own activation key; a
+      // keyboard visitor tabbing to "reseed" must get a reseed, not a pause
+      if (e.target instanceof Element && e.target.closest('button, a, [role="button"]')) return;
+      e.preventDefault(); $('#pause').click();
+    }
     else if (k === 't') setTheme(state.theme === 'dark' ? 'light' : 'dark');
     else if (k === 'l') setLang(state.lang === 'en' ? 'zh' : 'en');
   });

@@ -1,18 +1,54 @@
 /* Colour tokens here are a first-paint fallback: src/theme.js is the source of
-   truth and overwrites them on the root element as soon as the module runs. */
+   truth and overwrites them on the root element as soon as the module runs. The
+   light block is reached by the inline script in index.html, which reads the stored
+   theme before this sheet paints. */
 :root {
-  --bg: #070b10; --bg2: #0c1219; --ink: #d7e6e2; --muted: #8fa3b0; --accent: #35e0a0; --cool: #48b6ff;
+  --bg: #070b10; --bg2: #0c1219; --ink: #d7e6e2; --muted: #8fa3b0; --accent: #35e0a0; --accent-text: #35e0a0; --cool: #48b6ff;
   --blue: #3d7bff; --danger: #ff8080; --dim: #1a2530;
   --line: rgba(120,224,190,0.16); --panel: rgba(7,11,16,0.78); --panel-blur: 14px;
-  --fs-xs: 10.5px; --fs-sm: 11px; --fs-md: 12px;
+  /* type scale: 11 / 12 / 15 / 20 / 28. The mark and the card title share the top step. */
+  --fs-sm: 11px; --fs-md: 12px; --fs-lg: 15px; --fs-xl: 20px; --fs-2xl: 28px;
+  --gutter: 22px; /* one edge distance for every fixed panel */
   --serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* a halo in the page colour for text that sits directly on the animation */
+  --scrim: 0 0 2px var(--bg), 0 0 6px var(--bg), 0 0 14px var(--bg);
 }
 :root[data-theme="light"] {
-  --bg: #eef4f2; --bg2: #e2ebe8; --ink: #0d1b1a; --muted: #4a5c5b; --accent: #0d9e6d; --cool: #0e7490;
+  --bg: #eef4f2; --bg2: #e2ebe8; --ink: #0d1b1a; --muted: #4a5c5b; --accent: #0d9e6d; --accent-text: #0b7d55; --cool: #0e7490;
   --blue: #2563eb; --danger: #b42318; --dim: #cddbd6;
   --line: rgba(13,27,26,0.16); --panel: rgba(238,244,242,0.85);
 }
+
+/* Self-hosted latin subsets (fonts/). CJK text falls through to the system stack, as it
+   did when these came from Google. Fraunces is a variable font: one file covers the
+   weight range, and its optical-size axis follows font-size on its own. */
+@font-face {
+  font-family: "Fraunces"; font-style: normal; font-weight: 300 600; font-display: swap;
+  src: url(fonts/fraunces-roman.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces"; font-style: italic; font-weight: 300 600; font-display: swap;
+  src: url(fonts/fraunces-italic.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url(fonts/plex-mono-400.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap;
+  src: url(fonts/plex-mono-500.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Mono"; font-style: italic; font-weight: 400; font-display: swap;
+  src: url(fonts/plex-mono-400i.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
@@ -31,23 +67,25 @@ body.ui-hidden .ui {
   transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s;
 }
 .ui-hint {
-  position: fixed; right: 14px; bottom: 12px; z-index: 3; appearance: none; cursor: pointer;
+  position: fixed; right: var(--gutter); bottom: var(--gutter); z-index: 3; appearance: none; cursor: pointer;
   border: 1px solid var(--line); background: var(--panel); color: var(--muted);
   font-family: var(--mono); font-size: var(--fs-sm); padding: 5px 10px; border-radius: 2px;
   opacity: 0; visibility: hidden; transition: opacity .4s ease, visibility 0s linear .4s;
 }
-body.ui-hidden .ui-hint { opacity: .75; visibility: visible; transition: opacity .4s ease, visibility 0s; }
-body.ui-hidden .ui-hint:hover, body.ui-hidden .ui-hint:focus-visible { opacity: 1; border-color: var(--accent); color: var(--ink); }
+body.ui-hidden .ui-hint { opacity: 1; visibility: visible; transition: opacity .4s ease, visibility 0s; }
+body.ui-hidden .ui-hint:hover, body.ui-hidden .ui-hint:focus-visible { border-color: var(--accent); color: var(--ink); }
 
-/* brand */
-.brand { top: 22px; left: 26px; display: flex; gap: 14px; align-items: flex-start; }
-.mark { font-family: var(--serif); font-weight: 600; font-size: 28px; letter-spacing: -0.02em; line-height: 1; padding-top: 2px; }
+/* brand: the only chrome with no panel behind it, so it carries a scrim instead */
+.brand { top: var(--gutter); left: var(--gutter); display: flex; gap: 14px; align-items: flex-start; text-shadow: var(--scrim); }
+.mark { font-family: var(--serif); font-weight: 600; font-size: var(--fs-2xl); letter-spacing: -0.02em; line-height: 1; padding-top: 2px; }
 .mark span { color: var(--accent); font-style: italic; font-weight: 300; margin: 0 1px; }
-.brand-text .t1 { font-family: var(--serif); font-size: 20px; font-weight: 300; font-style: italic; line-height: 1.1; }
+.brand-text .t1 { font-family: var(--serif); font-size: var(--fs-xl); font-weight: 300; font-style: italic; line-height: 1.1; }
 .brand-text .t2 { color: var(--muted); font-size: var(--fs-sm); margin-top: 5px; max-width: 46ch; }
+.brand-text .repo { display: inline-block; margin-top: 6px; color: var(--muted); font-size: var(--fs-sm); text-decoration: none; border-bottom: 1px solid var(--line); }
+.brand-text .repo:hover, .brand-text .repo:focus-visible { color: var(--ink); border-bottom-color: var(--accent); }
 
-/* tabs: specimen tags */
-.tabs { left: 26px; bottom: 70px; display: flex; flex-direction: column; gap: 4px; }
+/* tabs: specimen tags. bottom = toolbar gutter + toolbar height + one more gutter */
+.tabs { left: var(--gutter); bottom: calc(var(--gutter) * 2 + 30px); display: flex; flex-direction: column; gap: 4px; }
 .tab {
   appearance: none; background: var(--panel); backdrop-filter: blur(var(--panel-blur)); -webkit-backdrop-filter: blur(var(--panel-blur));
   color: var(--ink); border: 1px solid var(--line); border-left: 3px solid transparent; border-radius: 2px;
@@ -56,13 +94,14 @@ body.ui-hidden .ui-hint:hover, body.ui-hidden .ui-hint:focus-visible { opacity: 
   transition: border-color .2s, background .2s, transform .2s;
 }
 .tab:hover { transform: translateX(2px); border-color: var(--accent); }
-.tab[aria-selected="true"] { border-left-color: var(--accent); background: color-mix(in srgb, var(--panel) 70%, var(--accent) 12%); }
-.tab .num { color: var(--accent); font-weight: 500; }
-.tab .name { font-family: var(--serif); font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
-.tab .engine { color: var(--muted); font-size: var(--fs-xs); }
+/* percentages must sum to 100 or color-mix scales the alpha down: 70+12 left the selected tab more transparent than its siblings */
+.tab[aria-selected="true"] { border-left-color: var(--accent); background: color-mix(in srgb, var(--panel) 88%, var(--accent) 12%); }
+.tab .num { color: var(--accent-text); font-weight: 500; }
+.tab .name { font-family: var(--serif); font-size: var(--fs-lg); font-weight: 500; letter-spacing: -0.01em; }
+.tab .engine { color: var(--muted); font-size: var(--fs-sm); }
 
 /* card */
-.card-wrap { top: 22px; right: 22px; width: min(360px, calc(100vw - 44px)); max-height: calc(100vh - 110px); display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.card-wrap { top: var(--gutter); right: var(--gutter); width: min(360px, calc(100vw - 2 * var(--gutter))); max-height: calc(100vh - 110px); display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .card-toggle { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-family: var(--mono); font-size: var(--fs-sm); padding: 4px 9px; border-radius: 2px; cursor: pointer; }
 .card-toggle:hover { border-color: var(--accent); color: var(--ink); }
 .card {
@@ -81,14 +120,16 @@ body.card-collapsed .card-brief {
 }
 .card-brief .tagline { margin: 0; }
 .card-brief .brief-interact { margin: 4px 0 0; color: var(--ink); font-size: var(--fs-sm); }
+.card-brief .error { margin: 6px 0 0; text-align: left; }
+.card-brief .opts { margin-top: 8px; align-items: flex-end; }
 .card-head { display: flex; align-items: baseline; gap: 10px; }
-.card-head .num { color: var(--accent); font-weight: 500; }
-.card-head h1 { font-family: var(--serif); font-weight: 300; font-size: 30px; letter-spacing: -0.02em; margin: 0; line-height: 1; }
+.card-head .num { color: var(--accent-text); font-weight: 500; }
+.card-head h1 { font-family: var(--serif); font-weight: 300; font-size: var(--fs-2xl); letter-spacing: -0.02em; margin: 0; line-height: 1; }
 .card-head .engine { margin-left: auto; color: var(--muted); font-size: var(--fs-sm); }
 .tagline { margin: 8px 0 12px; color: var(--muted); font-size: var(--fs-sm); letter-spacing: .02em; }
-.error { color: var(--danger); border: 1px dashed var(--danger); padding: 8px 10px; border-radius: 2px; }
+.error { color: var(--danger); border: 1px dashed var(--danger); padding: 8px 10px; border-radius: 2px; white-space: pre-line; }
 .spec { margin: 0; display: grid; grid-template-columns: 6em 1fr; gap: 8px 12px; }
-.spec dt { color: var(--accent); font-size: var(--fs-sm); padding-top: 3px; }
+.spec dt { color: var(--accent-text); font-size: var(--fs-sm); padding-top: 3px; }
 .spec dd { margin: 0; font-family: var(--serif); font-size: 14px; line-height: 1.55; font-weight: 300; }
 .spec dd::first-letter { font-weight: 500; }
 .target { display: block; width: 96px; height: 96px; image-rendering: pixelated; margin: 12px 0 0; border: 1px solid var(--line); background: var(--bg2); }
@@ -96,13 +137,13 @@ body.card-collapsed .card-brief {
 .opt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .opt .lbl { color: var(--muted); font-size: var(--fs-sm); min-width: 5em; }
 .chip { appearance: none; border: 1px solid var(--line); background: transparent; color: var(--ink); font-family: var(--mono); font-size: var(--fs-sm); padding: 3px 8px; border-radius: 999px; cursor: pointer; }
-.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-.refs { margin: 14px 0 0; padding: 10px 0 0; border-top: 1px solid var(--line); list-style: none; color: var(--muted); font-size: var(--fs-xs); line-height: 1.5; }
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); }
+.refs { margin: 14px 0 0; padding: 10px 0 0; border-top: 1px solid var(--line); list-style: none; color: var(--muted); font-size: var(--fs-sm); line-height: 1.5; }
 .refs li::before { content: "— "; }
-.stats { margin-top: 10px; color: var(--muted); font-size: var(--fs-xs); letter-spacing: .02em; }
+.stats { margin-top: 10px; color: var(--muted); font-size: var(--fs-sm); letter-spacing: .02em; }
 
 /* toolbar */
-.toolbar { left: 26px; bottom: 18px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.toolbar { left: var(--gutter); bottom: var(--gutter); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .toolbar button, .toolbar .speed {
   border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(var(--panel-blur)); -webkit-backdrop-filter: blur(var(--panel-blur));
   color: var(--ink); font-family: var(--mono); font-size: var(--fs-sm); padding: 5px 10px; border-radius: 2px; cursor: pointer;
@@ -112,22 +153,32 @@ body.card-collapsed .card-brief {
 .toolbar .speed span { color: var(--muted); }
 .toolbar input[type=range] { width: 110px; accent-color: var(--accent); }
 .toolbar output { min-width: 4.5em; }
-.toolbar .keys { color: var(--muted); font-size: var(--fs-xs); margin-left: 6px; }
-#motion[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.toolbar .keys { color: var(--muted); font-size: var(--fs-sm); margin-left: 6px; text-shadow: var(--scrim); }
+#motion[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); }
 
 @media (max-width: 760px) {
-  .brand { top: 12px; left: 12px; }
-  .brand-text .t2, .toolbar .keys { display: none; }
+  :root { --gutter: 12px; }
+  .brand-text .t2, .brand-text .repo, .toolbar .keys { display: none; }
   /* tabs become one horizontal, scrollable row directly above the toolbar */
   .tabs { left: 12px; right: 12px; bottom: 62px; flex-direction: row; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-  .tab { min-width: 0; flex: 0 0 auto; grid-template-columns: auto auto; padding: 6px 10px; }
+  .tab { min-width: 0; flex: 0 0 auto; grid-template-columns: auto auto; padding: 6px 10px; min-height: 40px; align-items: center; }
   .tab .engine { display: none; }
   .tab .name { font-size: 13px; }
-  .toolbar { left: 12px; right: 12px; bottom: 10px; gap: 6px; }
-  .toolbar input[type=range] { width: 70px; }
+  /* one row that scrolls sideways: wrapped, the second row climbed into the tab strip.
+     Controls grow to a 40px touch height while the row stays under the tabs at 62px. */
+  .toolbar { right: var(--gutter); bottom: 10px; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .toolbar button, .toolbar .speed, .card-toggle { min-height: 40px; flex: 0 0 auto; }
+  .toolbar .speed span { display: none; }
+  .toolbar input[type=range] { width: 64px; }
+  .toolbar output { min-width: 0; }
+  .chip { min-height: 32px; padding: 5px 12px; }
   /* card floats at the top and starts collapsed (main.js adds .card-collapsed on small screens) */
-  .card-wrap { top: 56px; right: 12px; left: 12px; width: auto; max-height: calc(100vh - 190px); }
+  .card-wrap { top: 56px; left: var(--gutter); width: auto; max-height: calc(100vh - 190px); }
   .card { padding: 12px 14px; }
   .card-head h1 { font-size: 24px; }
 }
-@media (prefers-reduced-motion: reduce) { body, .ui, .card { transition: none; animation: none; } }
+/* every transition and animation in this sheet, including the ones re-declared at
+   higher specificity under body.ui-hidden, which the old `.ui` selector lost to */
+@media (prefers-reduced-motion: reduce) {
+  body, .ui, body.ui-hidden .ui, .ui-hint, body.ui-hidden .ui-hint, .tab, .card { transition: none; animation: none; }
+}

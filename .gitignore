@@ -5,3 +5,4 @@ nca/*.tmp
 node_modules/
 dist/
 .wrangler/
+tools/.cache/

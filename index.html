@@ -14,9 +14,13 @@
 <meta property="og:description" content="Six families of cellular automata as full-page web backgrounds: Rule 110, Life, Cyclic CA, Boids, Lenia, and a self-healing Neural CA. Each with the idea behind it.">
 <meta property="og:image" content="https://ca.davidyc.com/og.png">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,500&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<!-- The stored theme is applied before the first paint so a light-theme visitor does
+     not see a dark flash; styles.css carries both palettes for exactly this moment. -->
+<script>try { if (localStorage.getItem('ca.theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}</script>
+<!-- Fonts are self-hosted (fonts/): no third-party CSS on the critical path, nothing
+     for a visitor's browser to tell Google. The two roman faces are what first paint needs. -->
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/fraunces-roman.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/plex-mono-400.woff2">
 <link rel="stylesheet" href="styles.css">
 <!-- main.js's imports are three levels deep; without these the browser discovers them one round trip at a time -->
 <link rel="modulepreload" href="src/theme.js">
@@ -42,6 +46,7 @@
     <div class="brand-text">
       <div class="t1">A specimen room of living backgrounds</div>
       <div class="t2">Six families of cellular automata as living web backgrounds — each with the idea behind it</div>
+      <a class="repo" href="https://github.com/InjayTseng/ca-interactive" rel="noopener">source on GitHub ↗</a>
     </div>
   </header>
 
@@ -54,14 +59,14 @@
   </aside>
 
   <footer class="ui toolbar">
-    <label class="speed"><span>speed</span>
-      <input id="speed" type="range" min="-2" max="2" step="0.25" value="0" aria-label="speed">
-      <output id="speedv">1.00×</output>
+    <label class="speed"><span id="speed-label">speed</span>
+      <input id="speed" type="range" min="-2" max="2" step="0.25" value="0">
+      <output id="speedv" for="speed">1.00×</output>
     </label>
     <button id="pause" title="Space" aria-label="pause" aria-pressed="false">❚❚</button>
     <button id="reseed" title="R">reseed</button>
     <button id="theme" title="T">☾ dark</button>
-    <button id="lang" title="L">中</button>
+    <button id="lang" title="L" lang="zh-Hant" aria-label="切換為中文">中</button>
     <button id="motion" hidden aria-pressed="false" title="Your system prefers reduced motion; press to animate anyway">motion</button>
     <button id="hide" title="H">hide UI</button>
     <span class="keys">1–6 switch · H hide UI · R reseed · Space pause · T theme · L language</span>

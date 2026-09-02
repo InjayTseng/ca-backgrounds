@@ -1,29 +1,35 @@
 // Shared palettes — the single source of truth for colour in this project.
 // Sims read these through env.theme and re-read on setTheme(); the UI shell reads
 // them as CSS custom properties, which applyCssTheme() writes. styles.css holds a
-// copy of the dark values as a first-paint fallback only.
+// copy of both palettes as a first-paint fallback only: the inline script in
+// index.html picks the stored theme before the stylesheet paints.
+//
+// `accentText` is the accent as *text*: in dark it is the accent itself, in light
+// it is pulled darker until 11px text clears 4.5:1 on the panel. Sims never use
+// it; it exists for dt labels, tab numbers and pressed chips.
 export const THEMES = {
   dark: {
     name: 'dark',
     bg: '#070b10', bg2: '#0c1219', ink: '#d7e6e2', muted: '#8fa3b0',
-    accent: '#35e0a0', cool: '#48b6ff', blue: '#3d7bff', danger: '#ff8080',
+    accent: '#35e0a0', accentText: '#35e0a0', cool: '#48b6ff', blue: '#3d7bff', danger: '#ff8080',
     hi: '#eafcff', dim: '#1a2530',
     line: 'rgba(120,224,190,0.16)', panel: 'rgba(7,11,16,0.78)',
   },
   light: {
     name: 'light',
     bg: '#eef4f2', bg2: '#e2ebe8', ink: '#0d1b1a', muted: '#4a5c5b',
-    accent: '#0d9e6d', cool: '#0e7490', blue: '#2563eb', danger: '#b42318',
+    accent: '#0d9e6d', accentText: '#0b7d55', cool: '#0e7490', blue: '#2563eb', danger: '#b42318',
     hi: '#062b33', dim: '#cddbd6',
     line: 'rgba(13,27,26,0.16)', panel: 'rgba(238,244,242,0.85)',
   },
 };
 
-const CSS_VARS = ['bg', 'bg2', 'ink', 'muted', 'accent', 'cool', 'blue', 'danger', 'dim', 'line', 'panel'];
+const CSS_VARS = ['bg', 'bg2', 'ink', 'muted', 'accent', 'accentText', 'cool', 'blue', 'danger', 'dim', 'line', 'panel'];
+const kebab = (k) => k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()); // accentText -> --accent-text
 
 export function applyCssTheme(t) {
   const s = document.documentElement.style;
-  CSS_VARS.forEach((k) => s.setProperty(`--${k}`, t[k]));
+  CSS_VARS.forEach((k) => s.setProperty(`--${kebab(k)}`, t[k]));
 }
 
 export function hexToRgb(hex) {
