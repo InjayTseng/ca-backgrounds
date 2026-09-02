@@ -3,7 +3,8 @@
 - **Date:** 2026-09-03
 - **Status:** approved design, amended 2026-09-03 after a five-lens review (pointer
   coordinates, `options`, post-mount failures, `/element.js` caching, per-instance
-  runtime state); implementation in progress
+  runtime state); **implemented 2026-09-03** — `src/runtime.js`, `src/element.js`,
+  `element.js`, `embed.html`, CORS in `_headers`, CI deploy
 - **Scope:** one deliverable — a `<ca-background>` custom element that puts any of
   the six sims behind someone else's page. Flow Lenia is a separate effort and is
   deliberately not specced here (see *Related work*).
